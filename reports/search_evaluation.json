@@ -1,0 +1,308 @@
+{
+  "scope": "Constraint checks plus a small assistant-reviewed development sample",
+  "cases": [
+    {
+      "case": "model_a55",
+      "query": "A55",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 7,
+      "constraints_pass": true,
+      "elapsed_ms": 174.27,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_65b971d93d221620b40bbf27",
+        "offer_78e97a00642f3c874a05d9fb",
+        "offer_ab9d4ceb8477ac1ac8764376",
+        "offer_81116b69cd21638a0dd7a2c9",
+        "offer_49e13cd42dc4ab68414c24ea"
+      ]
+    },
+    {
+      "case": "model_a35",
+      "query": "A35",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 2,
+      "constraints_pass": true,
+      "elapsed_ms": 117.53,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_7f10bce2041794c249ab48b6",
+        "offer_25102127e8a9c51f092afa92"
+      ]
+    },
+    {
+      "case": "model_a15",
+      "query": "A15",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 0,
+      "constraints_pass": true,
+      "elapsed_ms": 118.09,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": []
+    },
+    {
+      "case": "model_s23",
+      "query": "S23",
+      "budget_toman": 300000000,
+      "radius_km": 10,
+      "total_matches": 6,
+      "constraints_pass": true,
+      "elapsed_ms": 111.5,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_5a911fd32fff1568f7bed411",
+        "offer_ef36fa3c39b1ad8d08876a02",
+        "offer_967a2b374555f048e922ac42",
+        "offer_6fff1f7370c1c452c4b6de3e",
+        "offer_00ecfff502c53ee3971129fb"
+      ]
+    },
+    {
+      "case": "model_s24",
+      "query": "S24",
+      "budget_toman": 300000000,
+      "radius_km": 10,
+      "total_matches": 12,
+      "constraints_pass": true,
+      "elapsed_ms": 115.96,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_3f9f64d0b0f4f9745aa01adf",
+        "offer_b2dd558efa43f742ddc86bb5",
+        "offer_b041f2b9ecdb8a909c646638",
+        "offer_11fe7ae1684148bca24bcd4c",
+        "offer_78d0b8f2ec5119d281fe320d"
+      ]
+    },
+    {
+      "case": "model_iphone",
+      "query": "iPhone",
+      "budget_toman": 300000000,
+      "radius_km": 10,
+      "total_matches": 66,
+      "constraints_pass": true,
+      "elapsed_ms": 138.57,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_f1f58ba62fea4b1ed045c979",
+        "offer_912ebb49c3d83d26b4b15fbd",
+        "offer_363c8410071d60d93c8b72b6",
+        "offer_71e48986c30851b2abe1d0da",
+        "offer_94562f1a2b8291764d14d025"
+      ]
+    },
+    {
+      "case": "model_redmi",
+      "query": "Redmi",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 209,
+      "constraints_pass": true,
+      "elapsed_ms": 148.27,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_8301720d9bf5c82e875ae0fd",
+        "offer_c8eb64868b94fc738c698b4b",
+        "offer_1bc52b353db3b66db22c2681",
+        "offer_891512584ecf908986beedbc",
+        "offer_f2467713d7a27d9cb7042085"
+      ]
+    },
+    {
+      "case": "model_poco",
+      "query": "Poco",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 94,
+      "constraints_pass": true,
+      "elapsed_ms": 130.85,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_0f11e81047b222e39f6a373c",
+        "offer_bf880d13e902ea3dc20fd492",
+        "offer_1bbbf13ad8d20d0d7170feda",
+        "offer_81533f54d439df61b0e9bcfe",
+        "offer_97fbb3b75e65eb81507d2384"
+      ]
+    },
+    {
+      "case": "storage_128",
+      "query": "A55 128",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 1,
+      "constraints_pass": true,
+      "elapsed_ms": 203.83,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_ab9d4ceb8477ac1ac8764376"
+      ]
+    },
+    {
+      "case": "storage_256",
+      "query": "A55 256",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 6,
+      "constraints_pass": true,
+      "elapsed_ms": 122.9,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_65b971d93d221620b40bbf27",
+        "offer_78e97a00642f3c874a05d9fb",
+        "offer_81116b69cd21638a0dd7a2c9",
+        "offer_49e13cd42dc4ab68414c24ea",
+        "offer_2d1c98f49ed3a847d8d81a10"
+      ]
+    },
+    {
+      "case": "storage_512",
+      "query": "S24 512",
+      "budget_toman": 300000000,
+      "radius_km": 10,
+      "total_matches": 1,
+      "constraints_pass": true,
+      "elapsed_ms": 121.3,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_344444997845eaad1fd9f132"
+      ]
+    },
+    {
+      "case": "storage_unit",
+      "query": "A55 256GB",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 6,
+      "constraints_pass": true,
+      "elapsed_ms": 118.99,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_65b971d93d221620b40bbf27",
+        "offer_78e97a00642f3c874a05d9fb",
+        "offer_81116b69cd21638a0dd7a2c9",
+        "offer_49e13cd42dc4ab68414c24ea",
+        "offer_2d1c98f49ed3a847d8d81a10"
+      ]
+    },
+    {
+      "case": "budget_low",
+      "query": "A55",
+      "budget_toman": 1000000,
+      "radius_km": 10,
+      "total_matches": 0,
+      "constraints_pass": true,
+      "elapsed_ms": 116.53,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": []
+    },
+    {
+      "case": "budget_mid",
+      "query": "A55",
+      "budget_toman": 100000000,
+      "radius_km": 10,
+      "total_matches": 3,
+      "constraints_pass": true,
+      "elapsed_ms": 120.02,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_65b971d93d221620b40bbf27",
+        "offer_78e97a00642f3c874a05d9fb",
+        "offer_ab9d4ceb8477ac1ac8764376"
+      ]
+    },
+    {
+      "case": "radius_zero",
+      "query": "A55",
+      "budget_toman": 200000000,
+      "radius_km": 0,
+      "total_matches": 0,
+      "constraints_pass": true,
+      "elapsed_ms": 125.15,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": []
+    },
+    {
+      "case": "radius_small",
+      "query": "A55",
+      "budget_toman": 200000000,
+      "radius_km": 1,
+      "total_matches": 0,
+      "constraints_pass": true,
+      "elapsed_ms": 120.72,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": []
+    },
+    {
+      "case": "radius_large",
+      "query": "A55",
+      "budget_toman": 200000000,
+      "radius_km": 30,
+      "total_matches": 7,
+      "constraints_pass": true,
+      "elapsed_ms": 118.91,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_65b971d93d221620b40bbf27",
+        "offer_78e97a00642f3c874a05d9fb",
+        "offer_ab9d4ceb8477ac1ac8764376",
+        "offer_81116b69cd21638a0dd7a2c9",
+        "offer_49e13cd42dc4ab68414c24ea"
+      ]
+    },
+    {
+      "case": "unknown_model",
+      "query": "NoSuchModelZXQ999",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 0,
+      "constraints_pass": true,
+      "elapsed_ms": 116.35,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": []
+    },
+    {
+      "case": "near_model",
+      "query": "A5",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 32,
+      "constraints_pass": true,
+      "elapsed_ms": 125.59,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_1bc52b353db3b66db22c2681",
+        "offer_891512584ecf908986beedbc",
+        "offer_f2467713d7a27d9cb7042085",
+        "offer_0981e19e029b91067717fe79",
+        "offer_869d4c7f593cfb346617dbb9"
+      ]
+    },
+    {
+      "case": "case_normalization",
+      "query": "a55",
+      "budget_toman": 200000000,
+      "radius_km": 10,
+      "total_matches": 7,
+      "constraints_pass": true,
+      "elapsed_ms": 136.83,
+      "review_status": "pending_manual_relevance_review",
+      "top_offer_ids": [
+        "offer_65b971d93d221620b40bbf27",
+        "offer_78e97a00642f3c874a05d9fb",
+        "offer_ab9d4ceb8477ac1ac8764376",
+        "offer_81116b69cd21638a0dd7a2c9",
+        "offer_49e13cd42dc4ab68414c24ea"
+      ]
+    }
+  ],
+  "reviewed_sample": {
+    "reviewer": "assistant_source_title_review",
+    "positive_examples_retrieved": 6,
+    "negative_examples_retrieved": 0,
+    "scope": "Development regression on seven inspected offers, not held-out retrieval accuracy"
+  }
+}

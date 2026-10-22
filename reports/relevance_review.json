@@ -1,0 +1,24 @@
+{
+  "reviewer": "assistant_source_title_review",
+  "scope": "Seven A55 offers inspected directly in the local database. Not an independent human benchmark.",
+  "query": "A55 256GB",
+  "budget_toman": 200000000,
+  "latitude": 35.7,
+  "longitude": 51.4,
+  "radius_km": 10,
+  "positive_offer_ids": [
+    "offer_65b971d93d221620b40bbf27",
+    "offer_78e97a00642f3c874a05d9fb",
+    "offer_81116b69cd21638a0dd7a2c9",
+    "offer_49e13cd42dc4ab68414c24ea",
+    "offer_2d1c98f49ed3a847d8d81a10",
+    "offer_48ca39a15d74ce7b5507af32"
+  ],
+  "negative_offer_ids": ["offer_ab9d4ceb8477ac1ac8764376"],
+  "negative_reason": "Product and seller titles identify 128 GB storage.",
+  "used_or_refurbished_offer_ids": [
+    "offer_65b971d93d221620b40bbf27",
+    "offer_78e97a00642f3c874a05d9fb"
+  ],
+  "limitations": "Labels establish model and storage relevance only. Color, warranty, condition equivalence, current price and stock remain unverified. This sample was selected during development and is not held out."
+}
