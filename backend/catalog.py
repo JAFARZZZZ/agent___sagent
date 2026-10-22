@@ -2,6 +2,7 @@
 import json
 import os
 import sqlite3
+from backend import config
 from contextlib import contextmanager
 from scripts.product_text import normalize_text, tokens
 from scripts.search_catalog import distance_km

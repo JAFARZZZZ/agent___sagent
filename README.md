@@ -1,6 +1,12 @@
 # Torob in-store shopping assistant
 
-Persian RTL shopping interface backed by FastAPI and the complete local Torob catalog. The existing phone CLI remains available; the new web catalog supports every dataset category.
+Persian RTL shopping interface backed by FastAPI and the complete local Torob catalog. The web agent uses the official OpenAI Responses API with validated catalog tools and persistent conversation. The existing phone CLI remains available separately.
+
+## Enable the web agent
+
+Install the updated requirements, then add `OPENAI_API_KEY` and `OPENAI_MODEL` to the project's `.env`. Choose a model available to your account with Responses function calling support. Restart Uvicorn. The application now reads `.env` automatically; existing shell variables take precedence. Never put API keys in frontend files. `OPENAI_BASE_URL` is optional and defaults to OpenAI. Timeout, tool round and output token limits are documented in `.env.example`. The seller secret accepts `SELLER_DEMO_SECRET` or the existing `SELLER_TOKEN`.
+
+The new chat panel creates a session automatically. Product results appear as existing interactive cards. Manual search remains available without AI configuration. Live model validation has not been performed because this project's environment does not contain OpenAI credentials/model configuration. See [implementation status](IMPLEMENTATION_STATUS.md) and [agent architecture](docs/agent_design.md).
 
 ## Run
 
@@ -33,11 +39,11 @@ The web integration test requires the actual imported catalog and tests three dy
 
 ## Deployment
 
-Set `SELLER_TOKEN` in the shell/environment, then `docker compose up --build`. Import the data first. The data directory is a persistent volume. Use HTTPS at a reverse proxy; do not expose the seller token. `.env` is read by Compose, not by the Python application. `CATALOG_DATABASE` can override the SQLite path. No hosted deployment is provisioned.
+Set `SELLER_TOKEN` in the shell/environment, then `docker compose up --build`. Import the data first. The data directory is a persistent volume. Use HTTPS at a reverse proxy; do not expose the seller token. `.env` is read by both Compose and the Python application. `CATALOG_DATABASE` can override the SQLite path. No hosted deployment is provisioned.
 
 ## Current limitations
 
-This is an initial functional web baseline, **not completion of the master specification**. SQLite is used instead of PostgreSQL/PostGIS. Web search is lexical, not an LLM natural-language planner; use concise product terms and explicit filters. The legacy AI CLI remains phone-specific and is not connected to the web UI. No semantic search, use-case interpretation, attribute constraint parser, installment filter, configurable store ranking, embedded map, similar-model fallback, image rendering, or live polling is implemented. Compare uses raw dynamic specifications and does not infer missing values. All offers remain discoverable including uncertain prices; original price-quality flags should be reviewed. No current inventory or real seller communication is available. Session IDs are bearer capabilities stored locally; production account access control and abuse protection remain work. Browser visual QA and cloud deployment remain unverified. Required expanded profiling notebooks/reports are not yet complete.
+This is **not completion of the master specification**. SQLite is used instead of PostgreSQL/PostGIS. The new web agent plans via Responses function calls over lexical retrieval; interpretation quality is not yet evaluated against a live model. The legacy CLI remains phone-specific. No semantic retrieval, required-attribute parser, installment filter, configurable ranking, embedded map, similar-model fallback, image rendering or live polling is implemented. Compare uses raw dynamic specifications. All offers remain discoverable including uncertain prices. No live inventory or real seller communication is available. Session IDs are bearer capabilities; production account access control, concurrency and abuse protection remain work. Browser QA, hosted deployment and expanded profiling reports remain incomplete. See IMPLEMENTATION_STATUS.md for detailed agent limitations.
 
 ## Demo
 

@@ -54,7 +54,7 @@ def save(sid,s):
     with c.connect() as db: db.execute('INSERT OR REPLACE INTO sessions VALUES (?,?)',(sid,json.dumps(s)))
 
 def admin(token):
-    expected=os.getenv('SELLER_TOKEN','')
+    expected=os.getenv('SELLER_DEMO_SECRET') or os.getenv('SELLER_TOKEN','')
     if not expected or not secrets.compare_digest(token or '',expected): raise HTTPException(403,'Seller access denied')
 
 @app.get('/api/health')
@@ -121,7 +121,8 @@ def respond(rid:str,response:Response,x_seller_token:str|None=Header(None)):
         db.execute('UPDATE confirmations SET response=? WHERE id=?',(json.dumps(value),rid))
     s=session(r['session_id'])
     if s.get('confirmation_id')==rid:
-        s['state']='ALTERNATIVE_REQUIRED' if response.inventory=='unavailable' or response.visit=='not_possible' else 'CONFIRMATION_RECEIVED'
+        over_budget=response.price is not None and s['preferences'].get('budget') is not None and response.price>s['preferences']['budget']
+        s['state']='ALTERNATIVE_REQUIRED' if response.inventory=='unavailable' or response.visit=='not_possible' or over_budget else 'CONFIRMATION_RECEIVED'
         save(r['session_id'],s)
     return value
 
@@ -137,5 +138,11 @@ def plan(sid:str):
     return {'product':product(o['product_id']),'offer':o,'shop':shop(o['shop_id']),
         'response':response,'expired':expired,'inventory_status':'unknown' if expired or not response else response['inventory'],
         'simulated':True,'reserved':False,'alternatives':c.offers(o['product_id'],exclude=o['offer_id'],**{k:p[k] for k in ('budget','lat','lon','radius')})}
+
+from backend.agent.orchestrator import ChatRequest, ChatResponse, run
+
+@app.post('/api/sessions/{sid}/chat',response_model=ChatResponse)
+def chat(sid:str,request:ChatRequest):
+    return run(sid,request.message)
 
 app.mount('/',StaticFiles(directory='frontend',html=True),name='frontend')

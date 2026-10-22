@@ -4,6 +4,12 @@ services:
     ports: ["8000:8000"]
     environment:
       SELLER_TOKEN: ${SELLER_TOKEN:?Set a private seller token}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-45}
+      OPENAI_MAX_TOOL_ROUNDS: ${OPENAI_MAX_TOOL_ROUNDS:-5}
+      OPENAI_MAX_OUTPUT_TOKENS: ${OPENAI_MAX_OUTPUT_TOKENS:-1500}
     volumes:
       - ./data:/app/data
     healthcheck:
