@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 from backend import catalog as c
 from backend import map_service
+from backend import shopping
 
 @asynccontextmanager
 async def lifespan(app):
@@ -39,6 +40,9 @@ class Preferences(BaseModel):
 
 class Selection(BaseModel):
     offer_id: str
+
+class ProductSelection(BaseModel):
+    product_id:str
 
 class Response(BaseModel):
     inventory: Literal['available','unavailable','unknown'] = 'unknown'
@@ -86,12 +90,43 @@ def compare(ids:list[str]):
 @app.post('/api/sessions')
 def create(p:Preferences):
     sid=uuid.uuid4().hex
-    s={'preferences':p.model_dump(),'state':'PRODUCTS_READY','offer_id':None}
+    s={'preferences':p.model_dump(),'state':'PRODUCTS_READY','offer_id':None,'basket':{'items':[],'total_budget':None}}
     save(sid,s)
     return {'id':sid,**s,'products':c.search(p.query,p.category,p.budget),'message':'نتایج بر اساس اطلاعات ثبت‌شده؛ موجودی و قیمت فعلی نیاز به تأیید دارد.'}
 
 @app.get('/api/sessions/{sid}')
 def get_session(sid:str): return session(sid)
+
+@app.post('/api/sessions/{sid}/selection')
+def select_product(sid:str,selection:ProductSelection):
+    c.record('products','product_id',selection.product_id)
+    s=session(sid);s['selected_product_id']=selection.product_id;s['offer_id']=None;save(sid,s)
+    return {'product_id':selection.product_id}
+
+@app.put('/api/sessions/{sid}/basket')
+def put_basket(sid:str,basket:shopping.Basket):
+    result=shopping.details(basket)
+    s=session(sid);s['basket']=basket.model_dump();save(sid,s)
+    return result
+
+@app.get('/api/sessions/{sid}/basket')
+def get_basket(sid:str):
+    s=session(sid);return shopping.details(shopping.Basket.model_validate(s.get('basket',{})))
+
+@app.post('/api/sessions/{sid}/basket/optimize')
+def optimize_basket(sid:str):
+    s=session(sid);p=s['preferences']
+    result=shopping.optimize(shopping.Basket.model_validate(s.get('basket',{})),p.get('lat'),p.get('lon'))
+    s['basket_plan']=result;save(sid,s);return result
+
+@app.get('/api/sessions/{sid}/map-offers')
+def relevant_map_offers(sid:str):
+    s=session(sid);basket=shopping.Basket.model_validate(s.get('basket',{}));ids={x.product_id for x in basket.items}
+    if not ids and s.get('selected_product_id'):ids={s['selected_product_id']}
+    if not ids:return {'offers':[],'shop_count':0}
+    p=s['preferences'];offers=[]
+    for pid in ids:offers.extend(c.offers(pid,budget=p.get('budget'),lat=p.get('lat'),lon=p.get('lon'),radius=p.get('radius',10)))
+    return {'offers':offers[:300],'total_offers':len(offers),'shop_count':len({o['shop_id'] for o in offers}),'truncated':len(offers)>300}
 
 @app.put('/api/sessions/{sid}/preferences')
 def update_preferences(sid:str,p:Preferences):
@@ -134,7 +169,19 @@ def mapped_shop_offers(shop_id:str,category:str|None=None,keyword:str|None=Query
 @app.get('/api/offers/{offer_id}')
 def mapped_offer(offer_id:str):
     offer=c.record('offers','offer_id',offer_id)
-    return {'offer':offer,'product':product(offer['product_id']),'shop':shop(offer['shop_id'])}
+    return {'offer':offer,'product':product(offer['product_id']),'shop':shop(offer['shop_id']),'price_freshness':shopping.freshness(offer.get('last_price_changed_at'))}
+
+class PriceUpdateRequest(BaseModel):
+    session_id:str
+
+@app.post('/api/offers/{offer_id}/price-update-request')
+def price_update_request(offer_id:str,body:PriceUpdateRequest):
+    offer=c.record('offers','offer_id',offer_id)
+    freshness=shopping.freshness(offer.get('last_price_changed_at'))
+    if freshness['status']!='stale':raise HTTPException(422,'Recorded price is not proven stale')
+    result=confirm(body.session_id,Selection(offer_id=offer_id))
+    s=session(body.session_id);s['price_update_request']={'request_id':result['id'],'offer_id':offer_id,'shop_id':offer['shop_id'],'old_price_toman':offer['price_toman'],'requested_at':time.time(),'status':'PENDING'};save(body.session_id,s)
+    return {**result,'status':'PENDING','old_price_toman':offer['price_toman'],'shop_id':offer['shop_id'],'simulated':True}
 
 @app.get('/api/sessions/{sid}/offers/{pid}')
 def find_offers(sid:str,pid:str):
@@ -192,5 +239,8 @@ def chat(sid:str,request:ChatRequest):
 
 @app.get('/chat')
 def chat_page(): return FileResponse('frontend/chat.html')
+
+@app.get('/map')
+def map_page(): return FileResponse('frontend/map.html')
 
 app.mount('/',StaticFiles(directory='frontend',html=True),name='frontend')
