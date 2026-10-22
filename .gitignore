@@ -9,3 +9,4 @@ data/processed/
 *.sqlite
 *.sqlite-journal
 outputs/evaluation/browser/*.png
+outputs/evaluation/chat-ui/*.png

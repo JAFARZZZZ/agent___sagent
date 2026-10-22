@@ -33,6 +33,8 @@ Source files: `data/products.csv`, `data/shops.csv`, `data/offers.csv`. Import p
 
 ## Validation
 
+Unified chat UI: start the server on port 8002, then run `.venv/Scripts/python -m scripts.chat_ui_smoke`. See [chat UI behavior and limits](docs/chat_ui.md). This supersedes the old browser smoke script's selectors, which target the previous interface.
+
 Core repair smoke test: `.venv/Scripts/python -m scripts.smoke_test`.
 Actual browser test (requires `pip install playwright` and installed Chrome; start the app on port 8001): `.venv/Scripts/python -m scripts.browser_smoke`.
 Opt-in live provider test: `.venv/Scripts/python -m scripts.test_live_ai` (uses configured credentials and may incur API usage). See `DEBUGGING_REPORT.md` for actual outcomes, including the live-provider timeout.

@@ -1,0 +1,19 @@
+{
+  "runs": [
+    {
+      "width": 1280,
+      "offers": 4,
+      "map_loaded": true,
+      "single_composer": true,
+      "same_session_filters": true
+    },
+    {
+      "width": 390,
+      "offers": 4,
+      "map_loaded": true,
+      "single_composer": true,
+      "same_session_filters": true
+    }
+  ],
+  "errors": []
+}

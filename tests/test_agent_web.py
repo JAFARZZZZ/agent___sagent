@@ -52,6 +52,16 @@ class AgentTests(unittest.TestCase):
         with self.assertRaises(ValueError): execute('update_shopping_preferences',{'budget':None},self.sid)
         with self.assertRaises(ValueError): execute('process_seller_response',{},self.sid)
 
+    def test_ui_preferences_preserve_history_and_clear_selection(self):
+        s=a.session(self.sid)
+        s.update(history=[{'role':'user','content':'hello'}],offer_id='old',confirmation_id='old')
+        a.save(self.sid,s)
+        result=a.update_preferences(self.sid,a.Preferences(budget=123))
+        self.assertEqual(result['history'],s['history'])
+        self.assertIsNone(result['offer_id'])
+        self.assertNotIn('confirmation_id',result)
+        self.assertEqual(a.session(self.sid)['preferences']['budget'],123)
+
     def test_large_tool_results_stay_available_to_frontend(self):
         calls=[]
         def create(**kwargs):

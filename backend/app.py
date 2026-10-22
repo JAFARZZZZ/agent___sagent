@@ -91,6 +91,18 @@ def create(p:Preferences):
 @app.get('/api/sessions/{sid}')
 def get_session(sid:str): return session(sid)
 
+@app.put('/api/sessions/{sid}/preferences')
+def update_preferences(sid:str,p:Preferences):
+    s=session(sid)
+    s.update(preferences=p.model_dump(),offer_id=None,state='PRODUCTS_READY')
+    s.pop('confirmation_id',None)
+    save(sid,s)
+    return s
+
+@app.get('/api/map-config')
+def map_config():
+    return {'tile_url':os.getenv('MAP_TILE_URL','https://tile.openstreetmap.org/{z}/{x}/{y}.png'),'attribution':os.getenv('MAP_ATTRIBUTION','© OpenStreetMap contributors')}
+
 @app.get('/api/sessions/{sid}/offers/{pid}')
 def find_offers(sid:str,pid:str):
     p=session(sid)['preferences']

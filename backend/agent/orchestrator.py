@@ -57,7 +57,7 @@ def run(sid,message,client=None):
                     seen.add(signature)
                     data=execute(call.name,args,sid)
                     # Keep structured catalog data, never model-created product cards.
-                    components.append({'tool':call.name,'data':data})
+                    components.append({'tool':call.name,'data':data,'arguments':args})
                     encoded=json.dumps(data,ensure_ascii=False)
                     if len(encoded)>30000:
                         # Trim model context, not the actual UI results.
