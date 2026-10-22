@@ -1,0 +1,49 @@
+{
+  "product_id": "product_47796232454501a5e8179e26",
+  "image_url": "https://image.torob.com/base/images/Ih/rU/IhrUr41_4rIdS9M9.jpg",
+  "viewports": [
+    {
+      "width": 320,
+      "overflow": false,
+      "real_image_loaded": false
+    },
+    {
+      "width": 360,
+      "overflow": false,
+      "real_image_loaded": false
+    },
+    {
+      "width": 375,
+      "overflow": false,
+      "real_image_loaded": false
+    },
+    {
+      "width": 390,
+      "overflow": false,
+      "real_image_loaded": false
+    },
+    {
+      "width": 430,
+      "overflow": false,
+      "real_image_loaded": false
+    },
+    {
+      "width": 768,
+      "overflow": false,
+      "real_image_loaded": false
+    },
+    {
+      "width": 1024,
+      "overflow": false,
+      "real_image_loaded": false
+    },
+    {
+      "width": 1440,
+      "overflow": false,
+      "real_image_loaded": false
+    }
+  ],
+  "geolocation_granted": true,
+  "manual_selection": true,
+  "errors": []
+}

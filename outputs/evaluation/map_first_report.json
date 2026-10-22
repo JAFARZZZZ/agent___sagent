@@ -1,0 +1,50 @@
+{
+  "coverage": {
+    "all_offers": 331506,
+    "geolocated_offers": 331506,
+    "non_geolocated_offers": 0
+  },
+  "viewports": [
+    {
+      "width": 320,
+      "clusters": 9,
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "clusters": 9,
+      "overflow": false
+    },
+    {
+      "width": 375,
+      "clusters": 9,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "clusters": 9,
+      "overflow": false
+    },
+    {
+      "width": 430,
+      "clusters": 9,
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "clusters": 9,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "clusters": 9,
+      "overflow": false
+    },
+    {
+      "width": 1440,
+      "clusters": 9,
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

@@ -10,3 +10,4 @@ data/processed/
 *.sqlite-journal
 outputs/evaluation/browser/*.png
 outputs/evaluation/chat-ui/*.png
+outputs/evaluation/rendering/*.png

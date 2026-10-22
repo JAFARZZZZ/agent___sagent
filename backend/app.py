@@ -8,8 +8,10 @@ from contextlib import asynccontextmanager
 from typing import Literal
 from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 from backend import catalog as c
+from backend import map_service
 
 @asynccontextmanager
 async def lifespan(app):
@@ -103,6 +105,37 @@ def update_preferences(sid:str,p:Preferences):
 def map_config():
     return {'tile_url':os.getenv('MAP_TILE_URL','https://tile.openstreetmap.org/{z}/{x}/{y}.png'),'attribution':os.getenv('MAP_ATTRIBUTION','© OpenStreetMap contributors')}
 
+class Viewport(BaseModel):
+    west:float=Field(ge=-180,le=180)
+    east:float=Field(ge=-180,le=180)
+    south:float=Field(ge=-90,le=90)
+    north:float=Field(ge=-90,le=90)
+    category:str|None=None
+    keyword:str|None=Field(default=None,max_length=100)
+    budget:int|None=Field(default=None,gt=0)
+    installment:bool=False
+    @model_validator(mode='after')
+    def ordered(self):
+        if self.west>=self.east or self.south>=self.north:raise ValueError('Invalid viewport')
+        return self
+
+@app.get('/api/map/clusters')
+def map_clusters(v:Viewport=Query(),zoom:int=Query(10,ge=1,le=18)):
+    return map_service.clusters(**v.model_dump(),zoom=zoom)
+
+@app.get('/api/map/stores')
+def map_stores(v:Viewport=Query(),limit:int=Query(100,ge=1,le=200),offset:int=Query(0,ge=0)):
+    return map_service.stores(**v.model_dump(),limit=limit,offset=offset)
+
+@app.get('/api/stores/{shop_id}/offers')
+def mapped_shop_offers(shop_id:str,category:str|None=None,keyword:str|None=Query(None,max_length=100),budget:int|None=Query(None,gt=0),installment:bool=False,limit:int=Query(24,ge=1,le=100),offset:int=Query(0,ge=0)):
+    return map_service.shop_offers(shop_id,category,keyword,budget,installment,limit,offset)
+
+@app.get('/api/offers/{offer_id}')
+def mapped_offer(offer_id:str):
+    offer=c.record('offers','offer_id',offer_id)
+    return {'offer':offer,'product':product(offer['product_id']),'shop':shop(offer['shop_id'])}
+
 @app.get('/api/sessions/{sid}/offers/{pid}')
 def find_offers(sid:str,pid:str):
     p=session(sid)['preferences']
@@ -156,5 +189,8 @@ from backend.agent.orchestrator import ChatRequest, ChatResponse, run
 @app.post('/api/sessions/{sid}/chat',response_model=ChatResponse)
 def chat(sid:str,request:ChatRequest):
     return run(sid,request.message)
+
+@app.get('/chat')
+def chat_page(): return FileResponse('frontend/chat.html')
 
 app.mount('/',StaticFiles(directory='frontend',html=True),name='frontend')

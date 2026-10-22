@@ -1,6 +1,8 @@
 # Torob in-store shopping assistant
 
-Persian RTL shopping interface backed by FastAPI and the complete local Torob catalog. The web agent uses the official OpenAI Responses API with validated catalog tools and persistent conversation. The existing phone CLI remains available separately.
+Persian RTL shopping interface backed by FastAPI and the complete local Torob catalog. The homepage `/` now opens the geographic catalog map; `/chat` opens the AI conversation. The web agent uses the official OpenAI Responses API with validated catalog tools and persistent conversation.
+
+Map API: `/api/map/clusters` aggregates every geolocated registered offer in a viewport at the requested zoom; `/api/map/stores` pages stores in a viewport; `/api/stores/{shop_id}/offers` pages a store's real offers. The homepage does not need an initial product search. Map and chat share browser session context. Tile imagery needs a reachable map provider; set `MAP_TILE_URL` and `MAP_ATTRIBUTION` for deployment. Product images are sourced from catalog URLs and may fail when the source host is unreachable.
 
 ## Enable the web agent
 

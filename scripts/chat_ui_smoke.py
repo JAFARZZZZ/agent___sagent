@@ -40,6 +40,7 @@ with sync_playwright() as pw:
         map_loaded=page.locator('.map').count()>0
         if map_loaded:
             assert int(page.locator('.map').get_attribute('data-marker-count'))>0
+            page.locator('.map-sheet').get_by_role('button',name='بستن',exact=True).click()
             page.locator('#filters-open').click()
             page.locator('#budget').fill('1')
             page.get_by_role('button',name='اعمال فیلترها',exact=True).click()
