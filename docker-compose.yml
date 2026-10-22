@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      SELLER_TOKEN: ${SELLER_TOKEN:?Set a private seller token}
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      start_period: 120s
+      interval: 30s

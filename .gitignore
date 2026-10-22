@@ -5,3 +5,6 @@ agent.local.json
 __pycache__/
 *.pyc
 data/processed/
+.venv/
+*.sqlite
+*.sqlite-journal

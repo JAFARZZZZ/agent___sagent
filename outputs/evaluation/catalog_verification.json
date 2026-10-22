@@ -1,0 +1,43 @@
+{
+  "counts": {
+    "products": 225903,
+    "shops": 6476,
+    "offers": 331506,
+    "product_search": 225903,
+    "categories": 3428,
+    "foreign_key_violations": 0,
+    "unindexed_products": null
+  },
+  "queries": [
+    {
+      "query": "کابل افشان",
+      "category": "39c9cfe454ed",
+      "matches": 3291,
+      "milliseconds": 162.91
+    },
+    {
+      "query": "دوربین دام",
+      "category": "5b03a7468034",
+      "matches": 848,
+      "milliseconds": 86.12
+    },
+    {
+      "query": "ساعت مچی",
+      "category": "912ee77efeb8",
+      "matches": 2510,
+      "milliseconds": 137.3
+    },
+    {
+      "query": "چراغ روکار",
+      "category": "c56d7e0cce73",
+      "matches": 774,
+      "milliseconds": 101.59
+    },
+    {
+      "query": "کیف گوشی",
+      "category": "0846d20ba2ee",
+      "matches": 2176,
+      "milliseconds": 226.43
+    }
+  ]
+}
