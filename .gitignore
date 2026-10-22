@@ -8,3 +8,4 @@ data/processed/
 .venv/
 *.sqlite
 *.sqlite-journal
+outputs/evaluation/browser/*.png

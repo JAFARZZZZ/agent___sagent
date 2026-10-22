@@ -1,0 +1,85 @@
+{
+  "products": {
+    "source": 225903,
+    "database": 225903,
+    "columns": [
+      "brand_name",
+      "category_name",
+      "image_urls",
+      "model",
+      "persian_title",
+      "product_id",
+      "specs"
+    ]
+  },
+  "shops": {
+    "source": 6476,
+    "database": 6476,
+    "columns": [
+      "address",
+      "category_names",
+      "contacts",
+      "instagram",
+      "lat",
+      "location_label",
+      "lon",
+      "name",
+      "payment_options",
+      "shop_id",
+      "supports_fast_delivery",
+      "website_url",
+      "weekly_hours"
+    ]
+  },
+  "offers": {
+    "source": 331506,
+    "database": 331506,
+    "columns": [
+      "description",
+      "last_price_changed_at",
+      "offer_id",
+      "price_toman",
+      "product_id",
+      "seller_title",
+      "shop_id",
+      "warranty"
+    ]
+  },
+  "samples": [
+    {
+      "product_id": "product_9106e7ac3baeb6ea64c58c85",
+      "title": "مبل تخت خوابشو مدل کاپری سایز ۱۶۵ سانت",
+      "offers": 105,
+      "shop_id": "shop_4986dd91071fbf727bd2865a"
+    },
+    {
+      "product_id": "product_a984d858a7dbfd86b7c8f56b",
+      "title": "مبل تخت خوابشو مدل کاپری با دسته مبلی",
+      "offers": 105,
+      "shop_id": "shop_4986dd91071fbf727bd2865a"
+    },
+    {
+      "product_id": "product_0c76a59f5c71858dcd82a678",
+      "title": "مبل تختخوابشو مدل رایکا(باکس دار)بدون دسته",
+      "offers": 88,
+      "shop_id": "shop_4986dd91071fbf727bd2865a"
+    }
+  ],
+  "search_modes": [
+    {
+      "mode": "english",
+      "query": "a 34",
+      "matches": 929
+    },
+    {
+      "mode": "mixed",
+      "query": "لنز دوربین سونی مدل E 70-350mm f/4.5-6.3 G OSS",
+      "matches": 1
+    },
+    {
+      "mode": "brand",
+      "query": "سونی",
+      "matches": 932
+    }
+  ]
+}

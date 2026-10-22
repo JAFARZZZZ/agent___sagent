@@ -57,11 +57,15 @@ def run(sid,message,client=None):
                     seen.add(signature)
                     data=execute(call.name,args,sid)
                     # Keep structured catalog data, never model-created product cards.
+                    components.append({'tool':call.name,'data':data})
                     encoded=json.dumps(data,ensure_ascii=False)
                     if len(encoded)>30000:
-                        data={'warning':'RESULT_TOO_LARGE: refine query or request individual records'}
+                        # Trim model context, not the actual UI results.
+                        if isinstance(data,list): data=data[:3]
+                        elif isinstance(data,dict) and 'results' in data: data={**data,'results':data['results'][:3]}
+                        if len(json.dumps(data,ensure_ascii=False))>30000:
+                            data={'warning':'Detailed results displayed in UI. Request individual records.'}
                     result={'success':True,'data':data,'data_source':'torob_dataset'}
-                    components.append({'tool':call.name,'data':data})
                 except Exception as exc:
                     result={'success':False,'error_code':type(exc).__name__,'message':'Invalid tool arguments, missing data, or unsupported operation. Refine request.'}
                 traces.append({'tool':call.name,'success':result['success'],'ms':round((time.monotonic()-tick)*1000,2)})

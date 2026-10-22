@@ -51,3 +51,13 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(a.session(self.sid)['preferences']['budget'],1000000)
         with self.assertRaises(ValueError): execute('update_shopping_preferences',{'budget':None},self.sid)
         with self.assertRaises(ValueError): execute('process_seller_response',{},self.sid)
+
+    def test_large_tool_results_stay_available_to_frontend(self):
+        calls=[]
+        def create(**kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(output=[Item()] if len(calls)==1 else [],usage=None,output_text='done')
+        data={'total':1,'results':[{'product_id':'fixture','description':'x'*31000}]}
+        with patch('backend.agent.orchestrator.execute',return_value=data):
+            result=run(self.sid,'test',SimpleNamespace(responses=SimpleNamespace(create=create)))
+        self.assertEqual(result.components[0]['data'],data)

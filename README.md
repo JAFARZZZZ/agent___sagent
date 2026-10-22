@@ -33,6 +33,10 @@ Source files: `data/products.csv`, `data/shops.csv`, `data/offers.csv`. Import p
 
 ## Validation
 
+Core repair smoke test: `.venv/Scripts/python -m scripts.smoke_test`.
+Actual browser test (requires `pip install playwright` and installed Chrome; start the app on port 8001): `.venv/Scripts/python -m scripts.browser_smoke`.
+Opt-in live provider test: `.venv/Scripts/python -m scripts.test_live_ai` (uses configured credentials and may incur API usage). See `DEBUGGING_REPORT.md` for actual outcomes, including the live-provider timeout.
+
 `.venv/Scripts/python -m unittest discover -s tests -v`
 
 The web integration test requires the actual imported catalog and tests three dynamically selected categories. It removes its own sessions. Original unit tests use small explicit fixtures.

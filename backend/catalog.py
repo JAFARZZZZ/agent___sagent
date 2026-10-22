@@ -41,7 +41,9 @@ def record(table, key, value):
         if row is None:
             raise KeyError(value)
         result = dict(row)
-        result.update(json.loads(result.pop('payload')))
+        raw=json.loads(result.pop('payload'))
+        if table=='offers': raw['source_price_toman']=raw.get('price_toman')
+        result={**raw,**result}
         return result
 
 def search(query='', category=None, budget=None, page=0, limit=24):
@@ -70,7 +72,9 @@ def offers(product_id, budget=None, lat=None, lon=None, radius=10, exclude=None)
             if r['offer_id']==exclude or (budget is not None and (r['price_toman'] is None or r['price_toman']>budget)): continue
             distance = distance_km(lat,lon,r['lat'],r['lon']) if lat is not None and lon is not None and r['lat'] is not None and r['lon'] is not None else None
             if lat is not None and (distance is None or distance>radius): continue
-            r.update(json.loads(r.pop('payload')))
+            raw=json.loads(r.pop('payload'))
+            raw['source_price_toman']=raw.get('price_toman')
+            r={**raw,**r}
             r['shop'] = json.loads(r['shop']); r['distance_km'] = distance
             r['inventory_status'] = 'unknown'
             result.append(r)

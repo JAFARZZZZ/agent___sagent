@@ -1,0 +1,12 @@
+{
+  "response_type": "ERROR",
+  "warnings": [
+    "AI_SERVICE_UNAVAILABLE"
+  ],
+  "metrics": {
+    "total_tokens": 0,
+    "elapsed_ms": 45131.84,
+    "tool_calls": []
+  },
+  "components": []
+}
