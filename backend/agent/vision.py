@@ -15,6 +15,7 @@ import httpx
 
 log = logging.getLogger(__name__)
 MAX_BYTES = 1_500_000
+REFERENCES: dict[str, str] = {}  # session id -> photo the user sent this turn
 
 
 def _fetch(url: str) -> str | None:
@@ -40,7 +41,7 @@ Answer ONLY JSON: {{"items":[{{"n":1,"fits":true,"confidence":0.0-1.0,"seen":"<w
 "issue":"<short Persian problem or empty>","style":"<short Persian note on look/colour/quality if useful>"}}]}}"""
 
 
-def inspect(products: list[dict], need: str, client=None) -> dict:
+def inspect(products: list[dict], need: str, client=None, reference: str | None = None) -> dict:
     from openai import OpenAI
     model = os.getenv('OPENAI_VISION_MODEL') or os.getenv('OPENAI_MODEL')
     if not model or not (os.getenv('OPENAI_API_KEY') or client):
@@ -49,6 +50,9 @@ def inspect(products: list[dict], need: str, client=None) -> dict:
     with ThreadPoolExecutor(max_workers=6) as pool:
         inline = list(pool.map(lambda u: _fetch(u) if u else None, urls))
     content = [{'type': 'text', 'text': PROMPT.format(need=need)}]
+    if reference:
+        content += [{'type': 'text', 'text': 'Reference photo sent by the user (the item they want; judge similarity to it):'},
+                    {'type': 'image_url', 'image_url': {'url': reference, 'detail': 'low'}}]
     for n, (p, data, url) in enumerate(zip(products, inline, urls), 1):
         content.append({'type': 'text', 'text': f"#{n}: {p.get('persian_title')}"})
         if data or url:

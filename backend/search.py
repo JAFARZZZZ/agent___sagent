@@ -73,9 +73,41 @@ def query_tokens(text: str) -> list[str]:
     return [w for w in dict.fromkeys(words) if w not in STOP and len(w) > 1 or w.isdigit()]
 
 
+# Persian <-> Latin brand/model aliases (titles mix both scripts: «ایرپاد» vs «AirPods»).
+_ALIASES = [('اپل', 'apple'), ('ایرپاد', 'airpods', 'airpod'), ('آیفون', 'iphone'), ('سامسونگ', 'samsung'), ('گلکسی', 'galaxy'),
+            ('شیائومی', 'xiaomi', 'شیامی'), ('ردمی', 'redmi'), ('پوکو', 'poco'), ('هواوی', 'huawei', 'هوآوی'), ('آنر', 'honor'),
+            ('سونی', 'sony'), ('ال جی', 'lg'), ('جی بی ال', 'jbl'), ('انکر', 'anker'), ('نوکیا', 'nokia'), ('لنوو', 'lenovo'),
+            ('ایسوس', 'asus'), ('اچ پی', 'hp'), ('دل', 'dell'), ('ایسر', 'acer'), ('مایکروسافت', 'microsoft'), ('بوز', 'bose'),
+            ('بیتس', 'beats'), ('هایلو', 'haylou'), ('کیو سی وای', 'qcy'), ('ریلمی', 'realme'), ('وان پلاس', 'oneplus'),
+            ('موتورولا', 'motorola'), ('تسکو', 'tsco'), ('ناتینگ', 'nothing'), ('پرو', 'pro'), ('مکس', 'max'), ('اولترا', 'ultra'),
+            ('پلاس', 'plus'), ('مینی', 'mini'), ('واچ', 'watch'), ('بادز', 'buds'), ('مک بوک', 'macbook'), ('آیپد', 'ipad')]
+ALIAS = {}
+for group in _ALIASES:
+    norm = [normalize_text(x) for x in group]
+    for x in norm:
+        if ' ' not in x:
+            ALIAS[x] = [y for y in norm if y != x and ' ' not in y]
+
+
 def _fts_expression(tokens: list[str], mode: str) -> str:
-    quoted = ['"' + t.replace('"', '') + '"*' for t in tokens]
-    return (' AND ' if mode == 'and' else ' OR ').join(quoted)
+    def term(t):
+        alts = [t] + ALIAS.get(t, [])
+        parts = ['"' + a.replace('"', '') + '"*' for a in alts]
+        return parts[0] if len(parts) == 1 else '(' + ' OR '.join(parts) + ')'
+    return (' AND ' if mode == 'and' else ' OR ').join(term(t) for t in tokens)
+
+
+def coverage(tokens: list[str], text: str) -> float:
+    """Share of query tokens (or their aliases) present in a product's searchable text."""
+    if not tokens:
+        return 1.0
+    words = text.split()
+    hit = 0
+    for t in tokens:
+        alts = [t] + ALIAS.get(t, [])
+        if any(w.startswith(a) for a in alts for w in words):
+            hit += 1
+    return hit / len(tokens)
 
 
 def lexical(db, text: str, category: str | None = None, k: int = CANDIDATES) -> list[str]:
@@ -112,11 +144,11 @@ def _evidence(db, ids: list[str], budget=None, lat=None, lon=None, radius=None, 
     if not ids:
         return {}
     marks = ','.join('?' * len(ids))
-    rows = db.execute(f'''SELECT o.product_id, o.price_toman, o.shop_id, s.lat, s.lon, s.payload
+    rows = db.execute(f'''SELECT o.product_id, o.price_toman, o.shop_id, s.lat, s.lon, s.payload, json_extract(o.payload,'$.last_price_changed_at')
         FROM offers o JOIN shops s USING(shop_id) WHERE o.product_id IN ({marks})''', ids)
     result: dict[str, dict] = {}
     shop_cache: dict[str, dict] = {}
-    for pid, price, shop_id, slat, slon, payload in rows:
+    for pid, price, shop_id, slat, slon, payload, changed in rows:
         e = result.setdefault(pid, {'offers': 0, 'matching_offers': 0, 'min_price': None, 'max_price': None,
                                     'nearest_km': None, 'shops': set(), 'installment_shops': 0, 'open_shops': 0})
         e['offers'] += 1
@@ -142,6 +174,8 @@ def _evidence(db, ids: list[str], budget=None, lat=None, lon=None, radius=None, 
         e['installment_shops'] += info['installment']
         e['open_shops'] += info['open']
         if price and price > 0:
+            if e['min_price'] is None or price < e['min_price']:
+                e['min_price_age_days'] = stores.freshness(changed)['age_days']
             e['min_price'] = price if e['min_price'] is None else min(e['min_price'], price)
             e['max_price'] = price if e['max_price'] is None else max(e['max_price'], price)
         if distance is not None:
@@ -157,7 +191,7 @@ ACCESSORY_WORDS = [normalize_text(w) for w in (
     'کیف', 'کاور', 'قاب', 'شاسی', 'محافظ', 'گلس', 'تاچ', 'ال سی دی', 'باتری', 'شارژر', 'فلت', 'برد ', 'پایه',
     'نگهدارنده', 'لوازم جانبی', 'قطعات', 'یدکی', 'آی سی', 'بازر', 'شیشه', 'کابل', 'آنتن', 'میز ', 'جعبه', 'آویز',
     'برچسب', 'استیکر', 'واکس', 'نظم دهنده', 'جاکفشی', 'باکس', 'لنز', 'هولدر', 'کیس ', 'سایر لوازم', 'بند ساعت',
-    'آداپتور', 'رم ', 'ریموت', 'اسباب بازی', 'یدک')]
+    'آداپتور', 'رم ', 'ریموت', 'اسباب بازی', 'یدک', 'چسب', 'lcd')]
 
 _category_sizes: dict | None = None
 
@@ -191,12 +225,19 @@ def detect_intent(db, query: str, lexical_ids: list[str]) -> dict:
     head = tokens[0]
     for entry in cats.values():
         words = normalize_text(entry['name']).split()
-        bonus = 1.0 if words and words[0].startswith(head[:4]) else 0.0
+        bonus = 3.0 if words and words[0].startswith(head[:4]) else 0.0
         bonus += 0.3 * sum(any(w.startswith(t[:4]) for w in words) for t in tokens)
         size = category_sizes(db).get(entry['id'], 1)
         entry['score'] = entry['evidence'] * (1 + bonus) * (1 + math.log10(size))
-        markers = _accessory_markers(entry['name']) - wanted
-        entry['accessory'] = bool(markers)
+        # If the user is asking for an accessory themselves, nothing is "just an accessory".
+        entry['accessory'] = not wanted and bool(_accessory_markers(entry['name']))
+    # When a category is literally named after the product («گوشی موبایل»), categories that only mention it later
+    # («دوربین گوشی و تبلت», «باتری گوشی موبایل») are parts/accessories of it.
+    if not wanted and any(normalize_text(e['name']).split()[:1] == [head] or normalize_text(e['name']).startswith(head + ' ') for e in cats.values()):
+        for e in cats.values():
+            words = normalize_text(e['name']).split()
+            if words and not words[0].startswith(head[:4]) and any(w.startswith(head[:4]) for w in words[1:]):
+                e['accessory'] = True
     main = sorted((e for e in cats.values() if not e['accessory']), key=lambda e: -e['score'])
     if main:
         top = main[0]['score']
@@ -240,7 +281,7 @@ def _rank(query: str = '', category: str | None = None, budget: int | None = Non
     with c.connect() as db:
         lexical_ids = lexical(db, query, category)
         if query_tokens(query) and not category:
-            intent = detect_intent(db, query, lexical_ids)
+            intent = detect_intent(db, query, lexical(db, query, None, k=1500))
             # Second pass: full recall inside the target categories (e.g. phones are not buried under cases).
             extra = []
             for cat in intent['categories'][:3]:
@@ -276,11 +317,12 @@ def _rank(query: str = '', category: str | None = None, budget: int | None = Non
             hidden_accessories = len(ordered) - len(chosen)
             ordered = chosen
         evidence = _evidence(db, ordered, budget, lat, lon, radius, installment, open_now)
-        head = query_tokens(query)[:1]
+        qtok = query_tokens(query)
+        head = qtok[:1]
         titles = {}
         if head and ordered:
             marks = ','.join('?' * len(ordered))
-            titles = {r[0]: r[1] for r in db.execute(f'SELECT product_id,title FROM product_fts WHERE product_id IN ({marks})', ordered)}
+            titles = {r[0]: r[1] + ' ' + r[2] for r in db.execute(f'SELECT product_id,title,brand FROM product_fts WHERE product_id IN ({marks})', ordered)}
         ranked = []
         primary = intent['categories'][0]['id'] if intent['categories'] else None
         for pid in ordered:
@@ -290,6 +332,9 @@ def _rank(query: str = '', category: str | None = None, budget: int | None = Non
             score = scores[pid] * (1 + 0.08 * math.log1p(e.get('shops', 0)))
             if head and titles.get(pid, '').startswith(head[0]):
                 score *= 1.6
+            if qtok and len(qtok) > 1:
+                # Products matching more of what the user typed (brand, model…) win clearly over partial matches.
+                score *= (0.2 + 0.8 * coverage(qtok, titles.get(pid, ''))) ** 2
             if primary and cat_of.get(pid) == primary:
                 score *= 1.4
             ranked.append((score, pid, e))
@@ -300,13 +345,18 @@ def _rank(query: str = '', category: str | None = None, budget: int | None = Non
                             'installment': installment, 'open_now': open_now}}
 
 
+REPLICA = re.compile(normalize_text('کپی|طرح اصلی|فیک|های کپی|مستر کپی|رپلیکا|replica|copy|fake'))
+
+
 def card(p: dict, pid: str, e: dict, score: float = 0.0, match=()) -> dict:
     return {
+        'replica': bool(REPLICA.search(normalize_text(p.get('persian_title') or ''))),
         'product_id': pid, 'persian_title': p.get('persian_title'), 'brand_name': p.get('brand_name'),
         'model': p.get('model'), 'category_name': p.get('category_name'),
         'image_url': (p.get('image_urls') or [None])[0], 'spec_count': len(p.get('specs') or []),
         'specs_preview': [{'key': s.get('key'), 'value': s.get('value')} for s in (p.get('specs') or [])[:4] if isinstance(s, dict)],
         'recorded_min_price': e.get('min_price'), 'recorded_max_price': e.get('max_price'),
+        'min_price_age_days': e.get('min_price_age_days'),
         'offer_count': e.get('offers', 0), 'matching_offers': e.get('matching_offers', 0), 'shop_count': e.get('shops', 0),
         'nearest_km': round(e['nearest_km'], 2) if e.get('nearest_km') is not None else None,
         'installment_shops': e.get('installment_shops', 0), 'open_shops': e.get('open_shops', 0),

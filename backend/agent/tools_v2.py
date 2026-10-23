@@ -77,6 +77,8 @@ class PrefArgs(Strict):
     radius_km: float | None = Field(default=None, gt=0, le=50)
     installment_only: bool | None = None
     open_now_only: bool | None = None
+    priorities: list[Literal['price', 'distance', 'open', 'installment', 'fresh']] | None = Field(
+        default=None, description='What matters most to the user when choosing a SHOP, most important first: price=cheaper, distance=closer, open=open now, installment=credit purchase, fresh=recently updated price. Infer from the conversation or ask.')
     clear_budget: bool = False
 
 
@@ -147,7 +149,7 @@ def execute(name: str, arguments: dict, sid: str) -> tuple[str | None, dict]:
         data = hybrid.payloads(args.product_ids)
         products = [{'product_id': pid, 'persian_title': data[pid].get('persian_title'),
                      'image_url': (data[pid].get('image_urls') or [None])[0]} for pid in args.product_ids if pid in data]
-        return ui, vision.inspect(products, args.need)
+        return ui, vision.inspect(products, args.need, reference=vision.REFERENCES.get(sid))
 
     if name == 'recommend_products':
         ids = [x.product_id for x in args.picks]
@@ -192,7 +194,7 @@ def execute(name: str, arguments: dict, sid: str) -> tuple[str | None, dict]:
         product = c.record('products', 'product_id', args.product_id)
         result = stores.ranked_stores(args.product_id, p.get('lat'), p.get('lon'),
                                       p.get('radius') if p.get('lat') is not None else None, p.get('budget'),
-                                      bool(p.get('installment')), bool(p.get('open_now')), limit=40)
+                                      bool(p.get('installment')), bool(p.get('open_now')), limit=40, priorities=p.get('priorities'))
         key = {'cheapest': lambda r: (r['price_toman'] is None, r['price_toman'] or 0),
                'nearest': lambda r: (r['shop']['distance_km'] is None, r['shop']['distance_km'] or 0),
                'open': lambda r: (r['shop']['open']['status'] != 'open', -r['score'])}.get(args.sort)
@@ -228,6 +230,8 @@ def execute(name: str, arguments: dict, sid: str) -> tuple[str | None, dict]:
             new['installment'] = args.installment_only
         if args.open_now_only is not None:
             new['open_now'] = args.open_now_only
+        if args.priorities is not None:
+            new['priorities'] = list(dict.fromkeys(args.priorities))
         new = a.Preferences.model_validate(new).model_dump()
         s['preferences'] = new; a.save(sid, s)
         return ui, new
@@ -260,10 +264,12 @@ def compact_for_model(name: str, data: dict) -> dict:
                                                   'nearest_km', 'installment_shops', 'open_shops')},
              'min_price_text': P.text(r.get('recorded_min_price')) or 'قیمت ثبت نشده',
              'max_price_text': P.text(r.get('recorded_max_price')) if r.get('recorded_max_price') != r.get('recorded_min_price') else None,
-             'min_price': r.get('recorded_min_price')}
+             'min_price': r.get('recorded_min_price'), 'replica_or_copy': r.get('replica'),
+             'price_age_days': r.get('min_price_age_days')}
             for i, r in enumerate(data['results'])]}
     if name == 'find_stores':
         return {'product': data['product']['persian_title'], 'total': data['total'], 'summary': data['summary'],
+                'sorted_by_user_priorities': data.get('priorities'), 'priorities_known': data.get('priorities_known'),
                 'excluded_by_constraints': data['excluded'], 'ranking': data['ranking'], 'results': [
                     {'n': i + 1, 'offer_id': r['offer_id'], 'shop_id': r['shop']['shop_id'], 'shop': r['shop']['name'],
                      'price_toman': r['price_toman'], 'price_text': P.text(r['price_toman']) or 'قیمت ثبت نشده',

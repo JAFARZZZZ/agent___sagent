@@ -189,6 +189,9 @@ def find_area(text: str) -> dict | None:
 
 # ------------------------------------------------------------ ranking
 
+STALE_DAYS = 60
+
+
 def freshness(raw) -> dict:
     if not raw:
         return {'status': 'unknown', 'age_days': None, 'label': 'زمان تغییر قیمت نامشخص'}
@@ -200,7 +203,8 @@ def freshness(raw) -> dict:
     except (ValueError, TypeError):
         return {'status': 'unknown', 'age_days': None, 'label': 'زمان تغییر قیمت نامشخص'}
     label = 'قیمت امروز ثبت شده' if age == 0 else f'قیمت {fa(age)} روز پیش ثبت شده'
-    return {'status': 'stale' if age >= 30 else 'recent', 'age_days': age, 'label': label}
+    # Older than ~2 months: shown faded with a warning; the shop must be asked before relying on it.
+    return {'status': 'stale' if age >= STALE_DAYS else 'recent', 'age_days': age, 'label': label}
 
 
 def shop_card(shop: dict, lat=None, lon=None) -> dict:
@@ -221,8 +225,44 @@ def shop_card(shop: dict, lat=None, lon=None) -> dict:
     }
 
 
+PRIORITIES = ('price', 'distance', 'open', 'installment', 'fresh')
+PRIORITY_FA = {'price': 'ارزان‌تر', 'distance': 'نزدیک‌تر', 'open': 'الان باز', 'installment': 'خرید قسطی', 'fresh': 'قیمت به‌روزتر'}
+
+
+def normalise_priorities(priorities, has_location: bool) -> list[str]:
+    order = [p for p in dict.fromkeys(priorities or []) if p in PRIORITIES]
+    if not has_location:
+        order = [p for p in order if p != 'distance']
+    if not order:
+        order = ['price']
+    # Tie-breakers after the user's explicit priorities, in a fixed, explainable order.
+    for p in ('price', 'distance', 'open', 'fresh'):
+        if p not in order and (p != 'distance' or has_location):
+            order.append(p)
+    return order
+
+
+def priority_key(r: dict, order: list[str]) -> tuple:
+    """Lexicographic key. Prices within ~3% and distances within 500 m count as equal, so the next priority decides."""
+    key = []
+    for p in order:
+        if p == 'price':
+            key.append(int(math.log(r['price_toman']) / math.log(1.03)) if r['price_toman'] else 10 ** 6)
+        elif p == 'distance':
+            d = r['shop']['distance_km']
+            key.append(int(d / 0.5) if d is not None else 10 ** 6)
+        elif p == 'open':
+            key.append({'open': 0, 'unknown': 1, 'closed': 2}[r['shop']['open']['status']])
+        elif p == 'installment':
+            key.append(0 if r['shop']['installment'] else 1)
+        elif p == 'fresh':
+            age = r['freshness']['age_days']
+            key.append(age // 15 if age is not None else 10 ** 4)
+    return tuple(key) + (r['price_toman'] or 10 ** 15,)
+
+
 def ranked_stores(product_id: str, lat=None, lon=None, radius=None, budget=None, installment=False,
-                  open_now=False, exclude_shop=None, exclude_offer=None, limit=30) -> dict:
+                  open_now=False, exclude_shop=None, exclude_offer=None, limit=30, priorities=None) -> dict:
     offers = c.offers(product_id)
     per_shop: dict[str, dict] = {}
     for o in offers:
@@ -254,18 +294,10 @@ def ranked_stores(product_id: str, lat=None, lon=None, radius=None, budget=None,
     prices = [r['price_toman'] for r in rows if r['price_toman']]
     dists = [r['shop']['distance_km'] for r in rows if r['shop']['distance_km'] is not None]
     lo, hi = (min(prices), max(prices)) if prices else (0, 0)
-    dmax = max(dists) if dists else 0
-    for r in rows:
-        p = r['price_toman']
-        price_score = 1 - ((p - lo) / (hi - lo)) if p and hi > lo else (1.0 if p else 0.3)
-        d = r['shop']['distance_km']
-        dist_score = (1 - d / dmax) if d is not None and dmax > 0 else (1.0 if d is not None else 0.5)
-        status = r['shop']['open']['status']
-        open_score = {'open': 1.0, 'unknown': 0.5, 'closed': 0.15}[status]
-        fresh_score = {'recent': 1.0, 'unknown': 0.5, 'stale': 0.2}[r['freshness']['status']]
-        weights = (0.45, 0.30, 0.15, 0.10) if lat is not None else (0.70, 0.0, 0.18, 0.12)
-        r['score'] = round(weights[0] * price_score + weights[1] * dist_score + weights[2] * open_score + weights[3] * fresh_score, 4)
-    rows.sort(key=lambda r: -r['score'])
+    order = normalise_priorities(priorities, lat is not None)
+    rows.sort(key=lambda r: priority_key(r, order))
+    for i, r in enumerate(rows):
+        r['score'] = len(rows) - i  # position only; no hidden weights
     if rows:
         tags = {}
         cheapest = min((r for r in rows if r['price_toman']), key=lambda r: r['price_toman'], default=None)
@@ -278,6 +310,7 @@ def ranked_stores(product_id: str, lat=None, lon=None, radius=None, budget=None,
             if r['shop']['open']['status'] == 'open': reasons.append('open_now')
             if r['shop']['installment']: reasons.append('installment')
             if r['freshness']['status'] == 'recent': reasons.append('fresh_price')
+            if r['freshness']['status'] == 'stale': reasons.append('stale_price')
             r['reasons'] = reasons
     summary = None
     if rows:
@@ -286,7 +319,8 @@ def ranked_stores(product_id: str, lat=None, lon=None, radius=None, budget=None,
                    'installment': sum(bool(r['shop']['installment']) for r in rows),
                    'nearest_km': min(dists) if dists else None}
     return {'product_id': product_id, 'results': rows[:limit], 'total': len(rows), 'excluded': excluded, 'summary': summary,
-            'ranking': 'قیمت ۴۵٪، فاصله ۳۰٪، باز بودن ۱۵٪، تازگی قیمت ۱۰٪' if lat is not None else 'قیمت ۷۰٪، باز بودن ۱۸٪، تازگی قیمت ۱۲٪ (موقعیت شما مشخص نیست)'}
+            'priorities': order, 'priorities_known': bool(priorities),
+            'ranking': 'به ترتیب اولویت تو: ' + '، بعد '.join(PRIORITY_FA[p] for p in order)}
 
 
 # ------------------------------------------------------------ seller follow-up (simulated)

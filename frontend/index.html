@@ -50,11 +50,22 @@
 
     <form class="composer" id="composer" autocomplete="off">
       <div class="suggest" id="suggest"></div>
+      <div class="attach" id="attach" hidden></div>
       <div class="input-row">
+        <button class="icon-btn in" id="imgBtn" type="button" aria-label="جستجو با عکس" title="جستجو با عکس"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+        <input type="file" id="imgInput" accept="image/*" hidden>
         <textarea id="input" rows="1" maxlength="2000" placeholder="بگو دنبال چی هستی…"></textarea>
+        <button class="icon-btn in" id="micBtn" type="button" aria-label="پیام صوتی" title="پیام صوتی"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
         <button class="send" id="send" type="submit" aria-label="ارسال">
           <svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>
         </button>
+      </div>
+      <div class="recbar" id="recbar" hidden>
+        <button type="button" class="icon-btn" id="recCancel" aria-label="لغو"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        <span class="rdot"></span><span id="recTime">۰:۰۰</span>
+        <span class="rwave" id="recWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="rhint">دارم گوش می‌دم…</span>
+        <button type="button" class="send" id="recStop" aria-label="ارسال صدا"><svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg></button>
       </div>
     </form>
   </section>
@@ -91,6 +102,7 @@
 </div>
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/leaflet.markercluster.js"></script>
+<script src="vendor/marked.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

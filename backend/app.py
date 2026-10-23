@@ -45,6 +45,7 @@ class Preferences(BaseModel):
     installment: bool = False
     open_now: bool = False
     area: str | None = Field(default=None,max_length=100)
+    priorities: list[Literal['price','distance','open','installment','fresh']] = Field(default_factory=list,max_length=5)
     @model_validator(mode='after')
     def coordinates(self):
         if (self.lat is None)!=(self.lon is None): raise ValueError('Supply both coordinates')

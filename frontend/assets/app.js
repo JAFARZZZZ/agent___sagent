@@ -50,7 +50,7 @@ const ICON = {
   x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   check: '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>',
 };
-const REASON = {best_choice: ['بهترین انتخاب', 'p'], cheapest: ['ارزان‌ترین', 'g'], nearest: ['نزدیک‌ترین', 'g'], open_now: ['الان باز است', 'g'], installment: ['خرید قسطی', 'p'], fresh_price: ['قیمت به‌روز', '']};
+const REASON = {stale_price: ['قیمت قدیمی (+۲ ماه)', 'a'], best_choice: ['اولویت اول تو', 'p'], cheapest: ['ارزان‌ترین', 'g'], nearest: ['نزدیک‌ترین', 'g'], open_now: ['الان باز است', 'g'], installment: ['خرید قسطی', 'p'], fresh_price: ['قیمت به‌روز', '']};
 
 /* ------------------------------------------------------------------ state */
 const S = {sid: null, prefs: {}, blocks: {}, compare: new Map(), busy: false, step: 0, health: null, areas: [], stores: null, pick: false};
@@ -70,16 +70,20 @@ function prefParams(extra = {}) {
 const thread = $('#thread');
 function scrollEnd() {requestAnimationFrame(() => thread.scrollTop = thread.scrollHeight)}
 function richText(t) {
-  return esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^\s*[-•]\s+/gm, '• ');
+  const safe = esc(String(t || '').replace(/^#{1,6}\s*/gm, '**').replace(/^(\*\*[^*\n]+)$/gm, '$1**'));
+  if (window.marked) {
+    try {return marked.parse(safe, {breaks: true, gfm: true}).replace(/href="\s*(javascript|data):[^"]*"/gi, 'href="#"').replace(/<a /g, '<a target="_blank" rel="noopener" ')} catch {}
+  }
+  return safe.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 }
-function addUser(text) {
+function addUser(text, {image = null, voice = false} = {}) {
   $('.welcome')?.remove();
-  thread.insertAdjacentHTML('beforeend', `<div class="msg user"><div class="bubble">${esc(text)}</div></div>`);
+  thread.insertAdjacentHTML('beforeend', `<div class="msg user"><div class="bubble">${image ? `<img class="uimg" src="${esc(image)}" alt="">` : ''}${voice ? '<span class="vtag">🎤 پیام صوتی</span>' : ''}${esc(text)}</div></div>`);
   scrollEnd();
 }
 function addBot(text) {
   $('.welcome')?.remove();
-  thread.insertAdjacentHTML('beforeend', `<div class="msg bot"><span class="avatar">${mascotSvg()}</span><div class="bubble">${richText(text)}</div></div>`);
+  thread.insertAdjacentHTML('beforeend', `<div class="msg bot"><span class="avatar">${mascotSvg()}</span><div class="bubble md">${richText(text)}</div></div>`);
   scrollEnd();
 }
 function addBlock(html, id) {
@@ -210,6 +214,9 @@ function stopPick() {S.pick = false; $('.map-pane').classList.remove('picking');
 function imgTag(url, cls = '') {
   return url ? `<img class="${cls}" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph',innerHTML:mascotSvg()}))">` : `<span class="ph">${mascotSvg()}</span>`;
 }
+const STALE_DAYS = 60;
+const staleBadge = days => `<span class="warn" title="این قیمت ${fa(days)} روز پیش ثبت شده (بیش از ۲ ماه)؛ قبل از رفتن استعلام بگیر">!</span>`;
+const mapBtn = (attrs, label = 'در نقشه') => `<button class="btn map sm" type="button" ${attrs}>${ICON.pin}${label}</button>`;
 function productCard(p) {
   const sel = S.compare.has(p.product_id);
   const price = p.recorded_min_price ? (p.recorded_max_price && p.recorded_max_price !== p.recorded_min_price ? `از ${money(p.recorded_min_price)}` : money(p.recorded_min_price)) : 'قیمت ثبت نشده';
@@ -219,15 +226,16 @@ function productCard(p) {
     p.installment_shops ? `<span class="mini p">قسطی</span>` : '',
     p.open_shops ? `<span class="mini g">${fa(p.open_shops)} باز</span>` : '',
   ].join('');
+  const old = p.min_price_age_days != null && p.min_price_age_days >= STALE_DAYS;
   return `<article class="pcard ${sel ? 'sel' : ''}" data-pid="${esc(p.product_id)}">
     <div class="pimg" data-act="detail" data-pid="${esc(p.product_id)}">${imgTag(p.image_url)}
       <label class="cmp-toggle" onclick="event.stopPropagation()"><input type="checkbox" data-act="cmp" data-pid="${esc(p.product_id)}" ${sel ? 'checked' : ''}>مقایسه</label></div>
     <div class="pbody">
       <h4 class="ptitle" title="${esc(p.persian_title)}">${esc(p.persian_title)}</h4>
       <div class="pcat">${esc(p.category_name || '')}${p.brand_name ? ' · ' + esc(p.brand_name) : ''}</div>
-      <div class="price">${price} ${p.recorded_min_price ? '<small>تومان · ثبت‌شده</small>' : ''}</div>
-      <div class="minis">${minis}</div>
-      <button class="btn primary sm wide" type="button" data-act="stores" data-pid="${esc(p.product_id)}" ${p.shop_count ? '' : 'disabled'}>${ICON.store} فروشگاه‌ها و قیمت‌ها</button>
+      <div class="price ${old ? 'old' : ''}">${price} ${p.recorded_min_price ? '<small>تومان · ثبت‌شده</small>' : ''}${old ? staleBadge(p.min_price_age_days) : ''}</div>
+      <div class="minis">${p.replica ? '<span class="mini a">طرح/کپی</span>' : ''}${minis}</div>
+      <div class="pact"><button class="btn primary sm" type="button" data-act="stores" data-pid="${esc(p.product_id)}" ${p.shop_count ? '' : 'disabled'}>${ICON.store} فروشگاه‌ها</button>${p.shop_count ? mapBtn(`data-act="map-product" data-pid="${esc(p.product_id)}"`) : ''}</div>
     </div></article>`;
 }
 function constraintText(c) {
@@ -250,10 +258,11 @@ function renderProducts(data, {q} = {}) {
 function storeRow(r, i) {
   const s = r.shop, open = s.open || {};
   const fresh = r.freshness || {};
-  return `<li class="srow" data-offer="${esc(r.offer_id)}" data-shop="${esc(s.shop_id)}">
+  const old = fresh.status === 'stale';
+  return `<li class="srow ${old ? 'is-stale' : ''}" data-offer="${esc(r.offer_id)}" data-shop="${esc(s.shop_id)}">
     <span class="rank">${fa(i + 1)}</span>
     <div><div class="sname" data-act="shop" data-shop="${esc(s.shop_id)}">${esc(s.name || 'فروشگاه')}</div></div>
-    <div class="sprice">${r.price_toman ? money(r.price_toman) : 'بدون قیمت'}<small class="${fresh.status === 'stale' ? 'stale' : ''}">${esc(fresh.label || '')}</small></div>
+    <div class="sprice">${r.price_toman ? money(r.price_toman) : 'بدون قیمت'}${old ? staleBadge(fresh.age_days) : ''}<small class="${old ? 'stale' : ''}">${esc(fresh.label || '')}</small></div>
     <div class="sline">
       ${s.distance_km != null ? `<span>${ICON.pin}${km(s.distance_km)}</span>` : ''}
       <span class="${open.status}">${ICON.clock}${esc(open.label || 'نامشخص')}</span>
@@ -263,16 +272,24 @@ function storeRow(r, i) {
     <div class="reasons">${(r.reasons || []).map(k => REASON[k] ? `<span class="mini ${REASON[k][1]}">${REASON[k][0]}</span>` : '').join('')}</div>
     <div class="sactions">
       <button class="btn soft sm" type="button" data-act="inquire" data-offer="${esc(r.offer_id)}">${ICON.phone} استعلام موجودی و قیمت</button>
-      <button class="btn ghost sm" type="button" data-act="focus" data-shop="${esc(s.shop_id)}">${ICON.map} نقشه</button>
+      ${mapBtn(`data-act="focus" data-shop="${esc(s.shop_id)}" data-pid="${esc(r.product_id)}"`)}
       ${s.lat != null ? `<a class="btn ghost sm" target="_blank" rel="noopener" href="https://balad.ir/location?latitude=${s.lat}&longitude=${s.lon}&zoom=17">${ICON.route} مسیر</a>` : ''}
     </div></li>`;
 }
-const SORTS = {best: ['پیشنهادی', (a, b) => b.score - a.score], cheapest: ['ارزان‌ترین', (a, b) => (a.price_toman || 9e18) - (b.price_toman || 9e18)], nearest: ['نزدیک‌ترین', (a, b) => (a.shop.distance_km ?? 9e9) - (b.shop.distance_km ?? 9e9)], open: ['الان باز', (a, b) => (a.shop.open.status !== 'open') - (b.shop.open.status !== 'open') || b.score - a.score]};
+const PRI = {price: ['💸', 'ارزون‌تر'], distance: ['📍', 'نزدیک‌تر'], open: ['🕒', 'الان باز'], installment: ['💳', 'قسطی'], fresh: ['🔄', 'قیمت به‌روز']};
+function priorityBar(data, id) {
+  const order = data.priorities || [], known = data.priorities_known;
+  const chips = Object.entries(PRI).filter(([k]) => k !== 'distance' || S.prefs.lat != null).map(([k, [ic, label]]) => {
+    const i = known ? (S.prefs.priorities || []).indexOf(k) : -1;
+    return `<button type="button" class="${i >= 0 ? 'on' : ''}" data-act="priority" data-key="${k}" data-block="${id}">${i >= 0 ? `<b>${fa(i + 1)}</b>` : ic} ${label}</button>`;
+  }).join('');
+  return `<div class="pbar ${known ? '' : 'ask'}">${known ? `<span>مرتب‌شده بر اساس اولویت تو:</span>` : `<span>${mascotSvg().replace('<svg', '<svg class="mini-m"')} برای انتخاب مغازه چی برات مهم‌تره؟ <small>(به ترتیب بزن)</small></span>`}<div class="pchips">${chips}</div></div>`;
+}
 function renderStores(data, id) {
   id = id || 'b' + (++blockSeq);
-  const blk = S.blocks[id] = S.blocks[id] || {kind: 'stores', data, sort: 'best'};
+  const blk = S.blocks[id] = S.blocks[id] || {kind: 'stores', data};
   blk.data = data;
-  const rows = [...data.results].sort(SORTS[blk.sort][1]);
+  const rows = data.results;
   const sm = data.summary || {};
   const ex = data.excluded || {}, exParts = [];
   if (ex.budget) exParts.push(`${fa(ex.budget)} به‌خاطر بودجه`); if (ex.radius) exParts.push(`${fa(ex.radius)} به‌خاطر فاصله`);
@@ -281,10 +298,11 @@ function renderStores(data, id) {
   const html = `<div class="sblock">
     <div class="shead">${imgTag(p.image_url)}<div><h3>${esc(p.persian_title || '')}</h3>
       <div class="ssum">${sm.shops ? `<span class="mini">${fa(sm.shops)} فروشگاه</span><span class="mini">${money(sm.min_price)}${sm.max_price && sm.max_price !== sm.min_price ? ' تا ' + money(sm.max_price) : ''}</span>${sm.open_now ? `<span class="mini g">${fa(sm.open_now)} باز</span>` : ''}${sm.installment ? `<span class="mini p">${fa(sm.installment)} قسطی</span>` : ''}${sm.nearest_km != null ? `<span class="mini g">نزدیک‌ترین ${km(sm.nearest_km)}</span>` : ''}` : '<span class="mini a">فروشگاهی با این شرایط پیدا نشد</span>'}</div></div></div>
-    ${rows.length > 1 ? `<div class="seg">${Object.entries(SORTS).map(([k, [label]]) => `<button type="button" data-act="sort" data-block="${id}" data-sort="${k}" class="${blk.sort === k ? 'on' : ''}">${label}</button>`).join('')}</div>` : ''}
+    ${rows.length > 1 ? priorityBar(data, id) : ''}
+    ${rows.length ? `<div class="srow-map">${mapBtn(`data-act="map-product" data-pid="${esc(data.product_id)}"`, `همه‌ی ${fa(rows.length)} فروشگاه در نقشه`)}</div>` : ''}
     <ol class="slist">${rows.slice(0, blk.all ? 40 : 6).map(storeRow).join('')}</ol>
     ${rows.length > 6 && !blk.all ? `<div style="padding:0 12px 12px"><button class="btn ghost sm wide" type="button" data-act="all-stores" data-block="${id}">نمایش همه ${fa(rows.length)} فروشگاه</button></div>` : ''}
-    <div class="sfoot"><span title="معیار رتبه‌بندی">چرا این ترتیب؟ ${esc(data.ranking || '')}</span>${exParts.length ? `<span>حذف‌شده: ${exParts.join('، ')}</span>` : ''}</div>
+    <div class="sfoot"><span>${esc(data.ranking || '')} · بدون امتیاز پنهان</span>${exParts.length ? `<span>حذف‌شده: ${exParts.join('، ')}</span>` : ''}</div>
   </div>`;
   return {id, html, rows};
 }
@@ -299,7 +317,7 @@ function renderCompare(data) {
     mrow('الان باز', m => m.shops ? fa(m.open_now || 0) : '—'),
     mrow('قسطی', m => m.shops ? fa(m.installment || 0) : '—'),
     ...data.rows.map(r => `<tr class="${r.differs ? 'diff' : ''}"><th>${esc(r.key)}</th>${r.values.map(v => `<td>${v == null ? '<span class="unknown">ثبت نشده</span>' : esc(v)}</td>`).join('')}</tr>`),
-    `<tr><th></th>${prods.map(p => `<td><button class="btn primary sm" type="button" data-act="stores" data-pid="${esc(p.product_id)}">فروشگاه‌ها</button></td>`).join('')}</tr>`,
+    `<tr><th></th>${prods.map(p => `<td><div class="row" style="margin:0;flex-wrap:wrap"><button class="btn primary sm" type="button" data-act="stores" data-pid="${esc(p.product_id)}">فروشگاه‌ها</button>${mapBtn(`data-act="map-product" data-pid="${esc(p.product_id)}"`)}</div></td>`).join('')}</tr>`,
   ].join('');
   return `<div class="block-head"><strong>مقایسه ${fa(prods.length)} کالا</strong><span>ردیف‌های زرد = تفاوت</span></div><div class="ctable-wrap"><table class="ctable"><thead>${head}</thead><tbody>${body}</tbody></table></div><div class="note">${esc(data.note || '')}</div>`;
 }
@@ -318,7 +336,7 @@ function renderInquiry(d) {
     body = `<div class="qa"><div><span>موجودی</span>${inv}</div><div><span>قیمت امروز</span><span>${price}${diff}</span></div><div><span>مراجعه</span>${r.visit === 'possible' ? '<b class="ok">امکان‌پذیر</b>' : r.visit === 'not_possible' ? '<b class="no">امکان‌پذیر نیست</b>' : '<b class="na">نامشخص</b>'}</div>${r.notes ? `<div><span>یادداشت</span><span>${esc(r.notes)}</span></div>` : ''}</div>`;
     if (d.status === 'confirmed') body += `<div class="row" style="margin-top:10px"><a class="btn primary sm" target="_blank" rel="noopener" href="https://balad.ir/location?latitude=${s.lat}&longitude=${s.lon}&zoom=17">${ICON.route} مسیر با بلد</a><a class="btn ghost sm" target="_blank" rel="noopener" href="https://neshan.org/maps/@${s.lat},${s.lon},17z">نشان</a>${s.mall?.summary ? `<span class="mini g" style="height:30px">${esc(s.mall.summary)}</span>` : ''}</div>`;
   }
-  const alts = d.alternatives?.length ? `<div class="alts"><h5>🔁 جایگزین‌های پیشنهادی (همین کالا)</h5>${d.alternatives.map(a => `<div class="alt"><div><b>${esc(a.shop.name)}</b><br><span class="${a.shop.open.status}">${esc(a.shop.open.label)}</span>${a.shop.distance_km != null ? ' · ' + km(a.shop.distance_km) : ''}</div><div style="text-align:end"><b>${money(a.price_toman)}</b><br><button class="btn soft sm" type="button" data-act="inquire" data-offer="${esc(a.offer_id)}">استعلام از این</button></div></div>`).join('')}</div>` : (d.status !== 'calling' && d.status !== 'confirmed' ? '<div class="note warn">فروشگاه جایگزینی با شرایط فعلی پیدا نشد.</div>' : '');
+  const alts = d.alternatives?.length ? `<div class="alts"><h5>🔁 جایگزین‌های پیشنهادی (همین کالا)</h5>${d.alternatives.map(a => `<div class="alt"><div><b>${esc(a.shop.name)}</b><br><span class="${a.shop.open.status}">${esc(a.shop.open.label)}</span>${a.shop.distance_km != null ? ' · ' + km(a.shop.distance_km) : ''}</div><div style="text-align:end"><b>${money(a.price_toman)}</b><br><span class="row" style="justify-content:flex-end;margin:4px 0 0"><button class="btn soft sm" type="button" data-act="inquire" data-offer="${esc(a.offer_id)}">استعلام از این</button>${mapBtn(`data-act="focus" data-shop="${esc(a.shop.shop_id)}" data-pid="${esc(a.product_id)}"`, 'نقشه')}</span></div></div>`).join('')}</div>` : (d.status !== 'calling' && d.status !== 'confirmed' ? '<div class="note warn">فروشگاه جایگزینی با شرایط فعلی پیدا نشد.</div>' : '');
   return `<div class="iq ${cls}"><div class="iq-top"><span class="phone">${ICON.phone}</span><div><h4>${title}</h4><p>${esc(s.mall?.summary || s.address || '')}</p></div></div>${body}${alts}<span class="sim">ⓘ ${esc(d.disclaimer)}</span></div>`;
 }
 function renderProductSheet(p) {
@@ -366,8 +384,9 @@ function renderPicks(d) {
       <div class="pk-img" data-act="detail" data-pid="${esc(p.product_id)}">${imgTag(p.image_url)}${p.label || i === 0 ? `<span class="pk-badge">${esc(p.label || 'پیشنهاد اصلی')}</span>` : ''}</div>
       <div class="pk-body"><h4>${esc(p.persian_title)}</h4>
         <p class="why">💡 ${esc(p.reason)}</p>
-        <div class="minis"><span class="mini">${p.recorded_min_price ? 'از ' + money(p.recorded_min_price) : 'قیمت ثبت نشده'}</span>${p.shop_count ? `<span class="mini">${fa(p.shop_count)} فروشگاه حضوری</span>` : ''}${p.nearest_km != null ? `<span class="mini g">${km(p.nearest_km)}</span>` : ''}${p.installment_shops ? '<span class="mini p">قسطی</span>' : ''}${p.open_shops ? `<span class="mini g">${fa(p.open_shops)} باز</span>` : ''}</div>
+        <div class="minis">${p.replica ? '<span class="mini a">طرح/کپی</span>' : ''}<span class="mini ${p.min_price_age_days >= STALE_DAYS ? 'old' : ''}">${p.recorded_min_price ? 'از ' + money(p.recorded_min_price) : 'قیمت ثبت نشده'}${p.min_price_age_days >= STALE_DAYS ? staleBadge(p.min_price_age_days) : ''}</span>${p.shop_count ? `<span class="mini">${fa(p.shop_count)} فروشگاه حضوری</span>` : ''}${p.nearest_km != null ? `<span class="mini g">${km(p.nearest_km)}</span>` : ''}${p.installment_shops ? '<span class="mini p">قسطی</span>' : ''}${p.open_shops ? `<span class="mini g">${fa(p.open_shops)} باز</span>` : ''}</div>
         <div class="row"><button class="btn primary sm" type="button" data-act="stores" data-pid="${esc(p.product_id)}" ${p.shop_count ? '' : 'disabled'}>${ICON.store} فروشگاه‌ها</button>
+        ${p.shop_count ? mapBtn(`data-act="map-product" data-pid="${esc(p.product_id)}"`) : ''}
         <label class="btn ghost sm"><input type="checkbox" data-act="cmp" data-pid="${esc(p.product_id)}" ${S.compare.has(p.product_id) ? 'checked' : ''} style="accent-color:var(--pink)">مقایسه</label></div>
       </div></article>`).join('')}</div>`;
 }
@@ -446,7 +465,7 @@ async function showStores(pid, {silent = false, replace = null} = {}) {
   const title = $(`.pcard[data-pid="${CSS.escape(pid)}"] .ptitle`)?.textContent || 'این کالا';
   if (!silent) addUser(`فروشگاه‌های حضوری «${title}» رو نشون بده`);
   closeSheet();
-  const data = await api(`/api/products/${encodeURIComponent(pid)}/stores?` + qs({...prefParams(), limit: 40}));
+  const data = await api(`/api/products/${encodeURIComponent(pid)}/stores?` + qs({...prefParams(), limit: 40, priorities: (S.prefs.priorities || []).join(',') || null}));
   const {id, html, rows} = renderStores(data, replace?.id);
   if (replace) replace.innerHTML = html;
   else {const el = addBlock(html, id); el.dataset.kind = 'stores'; el.dataset.pid = pid}
@@ -456,6 +475,7 @@ async function showStores(pid, {silent = false, replace = null} = {}) {
   if (!S.prefs.open_now) sug.push('فقط اونایی که الان بازن');
   setSuggestions(sug);
   if (!silent && S.prefs.lat == null) addBot('برای اینکه نزدیک‌ترین‌ها رو هم حساب کنم، از دکمه **📍 موقعیت؟** بالای گفتگو محله‌ات رو انتخاب کن.');
+  return data;
 }
 async function doCompare(ids) {
   addUser('این‌ها رو با هم مقایسه کن');
@@ -471,16 +491,17 @@ async function inquire(offerId) {
 }
 
 /* ------------------------------------------------------------------ agent (SSE) */
-async function ask(text) {
-  if (S.busy || !text.trim()) return;
+async function ask(text, image = null, {voice = false} = {}) {
+  text = (text || '').trim();
+  if (S.busy || (!text && !image)) return;
   S.busy = true; $('#send').disabled = true; setSuggestions([]);
-  addUser(text);
+  addUser(text || 'این رو برام پیدا کن 👆', {image, voice});
   $$('.qcard .qopts button:not(.picked)').forEach(b => b.disabled = true);
   S.turn = [];
   const th = thinking();
   let gotComponent = false, failed = false;
   try {
-    const r = await fetch(`/api/sessions/${S.sid}/agent`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: text})});
+    const r = await fetch(`/api/sessions/${S.sid}/agent`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: text, image})});
     if (!r.ok || !r.body) throw new Error('HTTP ' + r.status);
     const reader = r.body.getReader(), dec = new TextDecoder();
     let buf = '';
@@ -498,15 +519,18 @@ async function ask(text) {
         else if (ev.type === 'error') failed = true;
         else if (ev.type === 'message') {
           th.done();
-          if (failed && !gotComponent) {addBot(ev.text); await runSearch(text, {silent: true, note: 'نتایج جستجوی مستقیم (بدون هوش مصنوعی):'}).catch(() => {})}
+          if (failed && !gotComponent && text) {addBot(ev.text); await runSearch(text, {silent: true, note: 'نتایج جستجوی مستقیم (بدون هوش مصنوعی):'}).catch(() => {})}
           else addBot(ev.text);
         } else if (ev.type === 'done') {S.prefs = ev.preferences || S.prefs; renderPrefs(); setSuggestions(ev.suggestions)}
       }
     }
   } catch (e) {
     th.done();
-    addBot('ارتباط با دستیار برقرار نشد؛ نتایج جستجوی مستقیم رو نشونت می‌دم.');
-    await runSearch(text, {silent: true}).catch(() => addBot('جستجو هم انجام نشد؛ اتصال سرور را بررسی کن.'));
+    if (!text) addBot('ارتباط با دستیار برقرار نشد؛ برای جستجو با عکس دوباره امتحان کن.');
+    else {
+      addBot('ارتباط با دستیار برقرار نشد؛ نتایج جستجوی مستقیم رو نشونت می‌دم.');
+      await runSearch(text, {silent: true}).catch(() => addBot('جستجو هم انجام نشد؛ اتصال سرور را بررسی کن.'));
+    }
   } finally {
     th.done(); S.busy = false; $('#send').disabled = false; $('#input').focus();
   }
@@ -593,12 +617,13 @@ const Map_ = (() => {
   }
   function pinHtml(x, top) {
     const st = x.open?.status || 'unknown';
-    return `<div class="lpin ${st} ${top ? 'top' : ''}" data-shop="${esc(x.shop_id)}"><span class="ph-img">${x.product?.image_url ? `<img src="${esc(x.product.image_url)}" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('i'),{textContent:'🛍️'}))">` : '<i>🛍️</i>'}</span><span class="pp"><b>${pinPrice(x.price_toman)}</b><em>${esc((x.product?.title || '').slice(0, 26))}</em></span></div>`;
+    const old = x.freshness?.status === 'stale';
+    return `<div class="lpin ${st} ${top ? 'top' : ''} ${old ? 'is-stale' : ''}" data-shop="${esc(x.shop_id)}"><span class="ph-img">${x.product?.image_url ? `<img src="${esc(x.product.image_url)}" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('i'),{textContent:'🛍️'}))">` : '<i>🛍️</i>'}</span><span class="pp"><b>${pinPrice(x.price_toman)}${old ? ' ⚠' : ''}</b><em>${esc((x.product?.title || '').slice(0, 26))}</em></span></div>`;
   }
   function popupHtml(x) {
     return `<div class="mpop">${x.product?.image_url ? `<img src="${esc(x.product.image_url)}" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
       <b class="t">${esc(x.product?.title || '')}</b>
-      <div class="pr">${x.price_toman ? money(x.price_toman) + ' تومان' : 'قیمت ثبت نشده'} <small>${esc(x.freshness?.label || '')}</small></div>
+      <div class="pr ${x.freshness?.status === 'stale' ? 'old' : ''}">${x.price_toman ? money(x.price_toman) + ' تومان' : 'قیمت ثبت نشده'}${x.freshness?.status === 'stale' ? staleBadge(x.freshness.age_days) : ''} <small>${esc(x.freshness?.label || '')}</small></div>
       <div>🏪 ${esc(x.shop_name || '')} · <span class="${x.open?.status}">${esc(x.open?.label || '')}</span></div>
       ${x.mall ? `<div>🏬 ${esc(x.mall)}</div>` : ''}${x.distance_km != null ? `<div>📍 ${km(x.distance_km)} از شما</div>` : ''}
       ${x.installment?.length ? `<div>💳 ${x.installment.map(esc).join('، ')}</div>` : ''}
@@ -627,9 +652,9 @@ const Map_ = (() => {
       $('#strip').innerHTML = items.length ? `<div class="empty-map">${mascot()}<div><b>تو این قسمت نقشه فروشنده‌ای نیست</b><p>نقشه رو کوچیک‌تر کن یا جابه‌جا کن؛ ${fa(items.length)} فروشگاه جای دیگه‌ی تهران هستن.</p></div></div>` : `<div class="empty-map">${mascot()}<div><b>چیزی با این شرایط پیدا نشد</b><p>نقشه رو جابه‌جا کن، کوچیک‌تر کن یا فیلترها (بودجه، قسطی، الان باز) رو تغییر بده.</p></div></div>`;
       return;
     }
-    $('#strip').innerHTML = `<div class="lcards">${list.slice(0, 40).map(x => `<article class="lcard" data-shop="${esc(x.shop_id)}" data-act="card-focus">
+    $('#strip').innerHTML = `<div class="lcards">${list.slice(0, 40).map(x => `<article class="lcard ${x.freshness?.status === 'stale' ? 'is-stale' : ''}" data-shop="${esc(x.shop_id)}" data-act="card-focus">
       <span class="li">${x.product?.image_url ? `<img src="${esc(x.product.image_url)}" referrerpolicy="no-referrer" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{textContent:'🛍️'}))">` : '<i>🛍️</i>'}</span>
-      <div class="lb"><b class="lt">${esc(x.product?.title || '')}</b><span class="lpz">${x.price_toman ? money(x.price_toman) : 'بدون قیمت'}</span>
+      <div class="lb"><b class="lt">${esc(x.product?.title || '')}</b><span class="lpz">${x.price_toman ? money(x.price_toman) : 'بدون قیمت'}${x.freshness?.status === 'stale' ? staleBadge(x.freshness.age_days) : ''}</span>
       <span class="ls">${esc(x.shop_name || '')} · <span class="${x.open?.status}">${x.open?.status === 'open' ? 'باز' : x.open?.status === 'closed' ? 'بسته' : 'ساعت نامشخص'}</span>${x.distance_km != null ? ' · ' + km(x.distance_km) : ''}</span>
       ${x.mall ? `<span class="lm">🏬 ${esc(x.mall)}</span>` : ''}</div></article>`).join('')}</div>`;
   }
@@ -678,10 +703,44 @@ const Map_ = (() => {
   function refresh() {if (mode === 'explore') load(true)}
   const fly = (lat, lon, z = 14) => map?.flyTo([lat, lon], z, {duration: .7});
   const invalidate = () => map && setTimeout(() => map.invalidateSize(), 60);
-  return {init, setUser, showStores, focus, fly, clear: idle, invalidate, highlight, setExplore, backToExplore, refresh, cardFocus, get explore() {return explore}};
+  return {init, setUser, showStores, focus, fly, clear: idle, invalidate, highlight, setExplore, backToExplore, refresh, cardFocus, has: id => markers.has(id), get explore() {return explore}};
 })();
 
 function setView(v) {$('#app').dataset.view = v; if (v === 'map') Map_.invalidate()}
+
+/* ------------------------------------------------------------------ map from chat */
+async function storesFor(pid) {
+  return api(`/api/products/${encodeURIComponent(pid)}/stores?` + qs({...prefParams(), limit: 60, priorities: (S.prefs.priorities || []).join(',') || null}));
+}
+async function mapProduct(pid) {
+  const data = await storesFor(pid);
+  S.stores = {product: data.product, rows: data.results};
+  Map_.showStores(data.product, data.results);
+  revealMap(`${fa(data.results.length)} فروشگاه «${(data.product?.persian_title || '').slice(0, 30)}» روی نقشه`);
+}
+async function focusShop(shopId, pid) {
+  if (!Map_.has(shopId) && pid) {
+    const data = await storesFor(pid);
+    S.stores = {product: data.product, rows: data.results};
+    Map_.showStores(data.product, data.results);
+  }
+  revealMap();
+  Map_.focus(shopId);
+}
+function revealMap(msg) {
+  if (innerWidth <= 860) setView('map');
+  else {const pane = $('.map-pane'); pane.classList.remove('flash'); void pane.offsetWidth; pane.classList.add('flash'); if (msg) toast(msg)}
+}
+async function setPriority(key, blockId) {
+  let order = [...(S.prefs.priorities || [])];
+  order = order.includes(key) ? order.filter(k => k !== key) : [...order, key];
+  S.prefs = await api(`/api/sessions/${S.sid}/preferences`, {method: 'PATCH', body: {priorities: order}});
+  const blk = S.blocks[blockId]; if (!blk) return;
+  const data = await storesFor(blk.data.product_id);
+  const {html, rows} = renderStores(data, blockId);
+  $('#' + blockId).innerHTML = html;
+  S.stores = {product: data.product, rows}; Map_.showStores(data.product, rows);
+}
 
 /* ------------------------------------------------------------------ events */
 document.addEventListener('click', async e => {
@@ -695,7 +754,9 @@ document.addEventListener('click', async e => {
     else if (a === 'detail') openSheet(renderProductSheet(await api(`/api/products/${encodeURIComponent(t.dataset.pid)}/full`)));
     else if (a === 'shop') openSheet(renderShopSheet(await api(`/api/shops/${encodeURIComponent(t.dataset.shop)}/card?` + qs({lat: S.prefs.lat, lon: S.prefs.lon}))));
     else if (a === 'inquire') {closeSheet(); if (innerWidth <= 860) setView('chat'); await inquire(t.dataset.offer)}
-    else if (a === 'focus') Map_.focus(t.dataset.shop);
+    else if (a === 'focus') await focusShop(t.dataset.shop, t.dataset.pid);
+    else if (a === 'map-product') await mapProduct(t.dataset.pid);
+    else if (a === 'priority') await setPriority(t.dataset.key, t.dataset.block);
     else if (a === 'card-focus') Map_.focus(t.dataset.shop);
     else if (a === 'explore') {Map_.setExplore({q: t.dataset.q})}
     else if (a === 'back-explore') Map_.backToExplore();
@@ -733,7 +794,88 @@ document.addEventListener('change', e => {
   t.closest('.pcard')?.classList.toggle('sel', t.checked); renderTray();
 });
 document.addEventListener('keydown', e => {if (e.key === 'Escape') {closeSheet(); closePopover(); stopPick()}});
-$('#composer').addEventListener('submit', e => {e.preventDefault(); const v = $('#input').value.trim(); if (!v) return; $('#input').value = ''; autosize(); ask(v)});
+$('#composer').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('#input').value.trim(), img = S.pendingImage;
+  if (!v && !img) return;
+  $('#input').value = ''; autosize(); clearImage(); ask(v, img);
+});
+
+/* image input: file picker, camera, paste or drop -> resized JPEG data URL */
+function readImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) return reject(new Error('not an image'));
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1024 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', .82));
+    };
+    img.onerror = reject; img.src = url;
+  });
+}
+async function attachImage(file) {
+  try {S.pendingImage = await readImage(file)} catch {return toast('این فایل عکس نیست')}
+  $('#attach').innerHTML = `<img src="${S.pendingImage}" alt=""><div><b>عکس آماده‌ی جستجوست</b><small>اگه بخوای یه توضیح هم بنویس (مثلاً «همین رو ارزون‌تر می‌خوام»)</small></div><button type="button" class="icon-btn" id="attachX" aria-label="حذف عکس">${ICON.x}</button>`;
+  $('#attach').hidden = false; $('#attachX').onclick = clearImage; $('#input').focus();
+}
+function clearImage() {S.pendingImage = null; $('#attach').hidden = true; $('#attach').innerHTML = ''; $('#imgInput').value = ''}
+$('#imgBtn').onclick = () => $('#imgInput').click();
+$('#imgInput').onchange = e => e.target.files[0] && attachImage(e.target.files[0]);
+document.addEventListener('paste', e => {const f = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/')); if (f) {e.preventDefault(); attachImage(f)}});
+$('.chat-pane').addEventListener('dragover', e => {e.preventDefault(); $('.chat-pane').classList.add('drop')});
+$('.chat-pane').addEventListener('dragleave', () => $('.chat-pane').classList.remove('drop'));
+$('.chat-pane').addEventListener('drop', e => {e.preventDefault(); $('.chat-pane').classList.remove('drop'); const f = e.dataTransfer.files[0]; if (f) attachImage(f)});
+
+/* voice input: MediaRecorder -> /api/transcribe (Whisper via the configured provider) */
+const Rec = {rec: null, chunks: [], t0: 0, timer: null, stream: null, ctx: null, cancelled: false};
+async function startRec() {
+  if (S.busy) return;
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast('مرورگرت ضبط صدا رو پشتیبانی نمی‌کنه');
+  try {Rec.stream = await navigator.mediaDevices.getUserMedia({audio: true})} catch {return toast('اجازه‌ی میکروفون داده نشد')}
+  const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+  Rec.rec = new MediaRecorder(Rec.stream, type ? {mimeType: type} : {}); Rec.chunks = []; Rec.cancelled = false;
+  Rec.rec.ondataavailable = e => e.data.size && Rec.chunks.push(e.data);
+  Rec.rec.onstop = onRecStop;
+  Rec.rec.start(250); Rec.t0 = Date.now();
+  $('#composer').classList.add('recording'); $('#recbar').hidden = false;
+  const bars = $$('#recWave i');
+  try {
+    Rec.ctx = new AudioContext(); const an = Rec.ctx.createAnalyser(); an.fftSize = 64;
+    Rec.ctx.createMediaStreamSource(Rec.stream).connect(an); const buf = new Uint8Array(an.frequencyBinCount);
+    const draw = () => {if (!Rec.rec || Rec.rec.state !== 'recording') return; an.getByteFrequencyData(buf); bars.forEach((b, i) => b.style.height = (4 + buf[i + 2] / 255 * 22) + 'px'); requestAnimationFrame(draw)};
+    draw();
+  } catch {}
+  Rec.timer = setInterval(() => {
+    const sec = Math.floor((Date.now() - Rec.t0) / 1000);
+    $('#recTime').textContent = fa(Math.floor(sec / 60)) + ':' + fa(String(sec % 60).padStart(2, '0'));
+    if (sec >= 60) stopRec();
+  }, 250);
+}
+function stopRec(cancel = false) {
+  if (!Rec.rec) return;
+  Rec.cancelled = cancel; clearInterval(Rec.timer);
+  try {Rec.rec.stop()} catch {}
+  Rec.stream?.getTracks().forEach(t => t.stop()); Rec.ctx?.close().catch(() => {});
+  $('#composer').classList.remove('recording'); $('#recbar').hidden = true; $('#recTime').textContent = '۰:۰۰';
+}
+async function onRecStop() {
+  const blob = new Blob(Rec.chunks, {type: Rec.rec.mimeType || 'audio/webm'}); Rec.rec = null;
+  if (Rec.cancelled || blob.size < 1500) return;
+  const input = $('#input'), ph = input.placeholder; input.placeholder = 'دارم صدات رو به متن تبدیل می‌کنم…'; input.disabled = true;
+  try {
+    const r = await fetch('/api/transcribe', {method: 'POST', headers: {'Content-Type': blob.type.split(';')[0]}, body: blob});
+    if (!r.ok) throw new Error(r.status);
+    const {text} = await r.json();
+    if (!text) throw new Error('empty');
+    ask(text, S.pendingImage, {voice: true}); clearImage();
+  } catch {toast('صدا به متن تبدیل نشد؛ دوباره امتحان کن یا تایپ کن')}
+  finally {input.placeholder = ph; input.disabled = false}
+}
+$('#micBtn').onclick = () => Rec.rec ? stopRec() : startRec();
+$('#recStop').onclick = () => stopRec();
+$('#recCancel').onclick = () => stopRec(true);
 const autosize = () => {const i = $('#input'); i.style.height = 'auto'; i.style.height = Math.min(140, i.scrollHeight) + 'px'};
 $('#input').addEventListener('input', autosize);
 $('#input').addEventListener('keydown', e => {if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {e.preventDefault(); $('#composer').requestSubmit()}});

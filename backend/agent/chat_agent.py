@@ -40,14 +40,28 @@ SYSTEM = """تو «تربچه» هستی؛ یه دستیار خرید حضوری
 - بعد از هر جستجوی موفق حتماً recommend_products با ۲ یا ۳ گزینه‌ی واقعاً مرتبط و دلیل شخصی‌سازی‌شده (به نیاز و بودجه‌ی خود کاربر
   اشاره کن؛ قیمت ثبت‌شده، تعداد فروشگاه حضوری، مشخصات واقعی). برای انتخاب بین دو گزینه از compare_products استفاده کن.
 
+## عکس و صدا
+- اگه کاربر عکس فرستاد: یک جمله بگو چی تو عکس می‌بینی (نوع، برند/مدل اگه معلومه، رنگ)، بعد با همین مشخصات search_products کن و
+  check_product_photos (need = توضیح عکس) تا شبیه‌ترین‌ها انتخاب بشن. اگه مدل دقیق نبود، شبیه‌ترین‌ها رو با برچسب «مشابه» پیشنهاد بده.
+- پیام‌های صوتی به متن تبدیل شدن؛ غلط املایی احتمالی رو خودت تفسیر کن.
+
 ## گام ۳ — فروشگاه‌ها
 - find_stores برای محصولی که کاربر انتخاب کرد. اگه موقعیت نامعلومه، بخواه دکمه‌ی «موقعیت» رو بزنه یا محله رو بگه.
-- مقایسه بر اساس قیمت ثبت‌شده، فاصله، باز بودن الان، تازگی قیمت، قسطی، و آدرس داخل پاساژ (طبقه/واحد).
+- ترتیب فروشگاه‌ها امتیاز/ضریب نداره؛ دقیقاً بر اساس «اولویت‌های کاربر» چیده می‌شه (priorities: price=ارزان‌تر،
+  distance=نزدیک‌تر، open=الان باز، installment=قسطی، fresh=قیمت به‌روزتر). از حرف‌های کاربر بفهم («عجله دارم» → open و distance،
+  «پولم کمه» → price، «قسطی» → installment) و با update_preferences(priorities=[...]) ذخیره کن. اگه find_stores گفت
+  priorities_known=false و از گفتگو معلوم نیست، یک بار با ask_user (multi=true) بپرس: «ارزون‌تر باشه»، «نزدیک‌تر باشه»،
+  «همین الان باز باشه»، «بشه قسطی خرید»، «قیمتش به‌روز باشه».
+- قیمت‌هایی که price_age_days > 60 دارن قدیمی‌ان؛ بگو حتماً قبل رفتن استعلام بگیره.
 
 ## گام ۴ — هماهنگی
 - با contact_seller موجودی و قیمت روز رو بپرس (شبیه‌سازی‌شده؛ این رو بگو). اگه جواب نداد/ناموجود/بسته بود، جایگزین‌های check_inquiry رو پیشنهاد بده.
 
 ## قوانین
+- اگه کاربر برند یا مدل خاصی گفت (مثلاً «ایرپاد پرو»)، فقط کالاهایی رو پیشنهاد بده که عنوانشون همون برند/مدل رو داره. اگه نبود صادقانه بگو
+  تو فروشگاه‌های حضوری دیتاست پیدا نشد و نزدیک‌ترین‌ها رو با برچسب «جایگزین» پیشنهاد بده. کالای replica_or_copy=true رو اصل معرفی نکن؛
+  برچسب «طرح/کپی» بزن.
+- قالب متن: بدون تیتر markdown (#)؛ حداکثر چند خط کوتاه، در صورت نیاز با • و **پررنگ**.
 - قیمت: فقط و دقیقاً همون رشته‌ی price_text / min_price_text ابزار رو کپی کن؛ هیچ‌وقت قیمت رو گرد، حساب یا حدس نزن و قیمت
   یه کالا رو به کالای دیگه نسبت نده. اگه مطمئن نیستی، قیمت ننویس (کارت‌ها قیمت رو نشون می‌دن). در reason ها قیمت ننویس.
 - به کالاها با اسم دقیقشون اشاره کن، نه «اولی/دومی» از نتایج قدیمی؛ فقط درباره‌ی کالاهایی حرف بزن که همین الان در خروجی ابزار هستن.
@@ -97,7 +111,7 @@ def suggestions(components: list[dict], prefs: dict) -> list[str]:
     return out[:4]
 
 
-def run_stream(sid: str, message: str, client=None) -> Iterator[dict]:
+def run_stream(sid: str, message: str, client=None, image: str | None = None) -> Iterator[dict]:
     from backend import app as a
     from openai import OpenAI
     started = time.monotonic()
@@ -109,7 +123,16 @@ def run_stream(sid: str, message: str, client=None) -> Iterator[dict]:
     context['inquiries'] = (s.get('inquiries') or [])[-3:]
     messages = [{'role': 'system', 'content': SYSTEM},
                 {'role': 'system', 'content': 'وضعیت جلسه (داده): ' + json.dumps(context, ensure_ascii=False)}]
-    messages += history + [{'role': 'user', 'content': message}]
+    from backend.agent import vision
+    vision.REFERENCES.pop(sid, None)
+    if image:
+        vision.REFERENCES[sid] = image
+        user_content = [{'type': 'text', 'text': message or 'این عکس رو ببین و همین محصول یا مشابهش رو تو فروشگاه‌های حضوری پیدا کن.'},
+                        {'type': 'image_url', 'image_url': {'url': image, 'detail': 'low'}}]
+        message = (message or 'جستجو با عکس') + ' [کاربر یک عکس فرستاد]'
+    else:
+        user_content = message
+    messages += history + [{'role': 'user', 'content': user_content}]
     components: list[dict] = []
     known: set[int] = set(v for v in [(s.get('preferences') or {}).get('budget')] if v)
     answer, own = None, client is None

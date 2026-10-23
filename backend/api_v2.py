@@ -6,7 +6,7 @@ import json
 import time
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from backend import catalog as c
@@ -47,9 +47,11 @@ def search_info():
 @router.get('/api/products/{pid}/stores')
 def product_stores(pid: str, lat: float | None = Query(None, ge=-90, le=90), lon: float | None = Query(None, ge=-180, le=180),
                    radius: float | None = Query(None, gt=0, le=100), budget: int | None = Query(None, gt=0),
-                   installment: bool = False, open_now: bool = False, limit: int = Query(30, ge=1, le=100)):
+                   installment: bool = False, open_now: bool = False, limit: int = Query(30, ge=1, le=100),
+                   priorities: str | None = Query(None, max_length=80)):
     product = c.record('products', 'product_id', pid)
-    result = stores.ranked_stores(pid, lat, lon, radius, budget, installment, open_now, limit=limit)
+    order = [x for x in (priorities or '').split(',') if x]
+    result = stores.ranked_stores(pid, lat, lon, radius, budget, installment, open_now, limit=limit, priorities=order)
     result['product'] = slim_product(product)
     return result
 
@@ -181,8 +183,9 @@ def inquiry_status(sid: str, rid: str) -> dict:
     alternatives = []
     if needs_alternative:
         alt = stores.ranked_stores(offer['product_id'], p.get('lat'), p.get('lon'), p.get('radius'), p.get('budget'),
-                                   bool(p.get('installment')), False, exclude_shop=offer['shop_id'], limit=6)
-        alternatives = sorted(alt['results'], key=lambda r: (r['shop']['open']['status'] != 'open', -r['score']))[:3]
+                                   bool(p.get('installment')), False, exclude_shop=offer['shop_id'], limit=6,
+                                   priorities=['open'] + list(p.get('priorities') or []))
+        alternatives = alt['results'][:3]
     old_price = int(offer['price_toman']) if offer.get('price_toman') else None
     return {'id': rid, 'status': status, 'elapsed_s': round(elapsed, 1), 'expected_s': stores.AUTO_REPLY_SECONDS,
             'offer_id': offer['offer_id'], 'product_id': offer['product_id'],
@@ -194,7 +197,8 @@ def inquiry_status(sid: str, rid: str) -> dict:
 # ------------------------------------------------------------ streaming agent
 
 class AgentMessage(BaseModel):
-    message: str = Field(min_length=1, max_length=2000)
+    message: str = Field(default='', max_length=2000)
+    image: str | None = Field(default=None, max_length=4_000_000, description='data:image/...;base64 photo from the user')
 
 
 @router.post('/api/sessions/{sid}/agent')
@@ -202,9 +206,13 @@ def agent_stream(sid: str, body: AgentMessage):
     from fastapi.responses import StreamingResponse
     from backend.agent.chat_agent import run_stream
     _app().session(sid)  # 404 early for unknown sessions
+    if not body.message.strip() and not body.image:
+        raise HTTPException(422, 'Empty message')
+    if body.image and not body.image.startswith('data:image/'):
+        raise HTTPException(422, 'Image must be a data:image URL')
 
     def events():
-        for event in run_stream(sid, body.message):
+        for event in run_stream(sid, body.message.strip(), image=body.image):
             yield 'data: ' + json.dumps(event, ensure_ascii=False, default=str) + '\n\n'
     return StreamingResponse(events(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
@@ -226,6 +234,7 @@ class PrefsPatch(BaseModel):
     radius: float | None = Field(default=None, gt=0, le=100)
     installment: bool | None = None
     open_now: bool | None = None
+    priorities: list[str] | None = None
 
 
 @router.patch('/api/sessions/{sid}/preferences')
@@ -319,3 +328,28 @@ def _build_listings(q, category, budget, installment, open_now, include_accessor
     listings.sort(key=lambda x: (x['product']['rank'], x['price_toman'] or 9e18))
     return {'listings': listings[:1500], 'total_shops': len(listings), 'products': len(order),
             'intent': r['intent']['categories'], 'hidden_accessories': r['hidden_accessories']}
+
+
+# ------------------------------------------------------------ voice input
+
+@router.post('/api/transcribe')
+async def transcribe(request: Request):
+    """Persian speech-to-text through the configured OpenAI-compatible provider (whisper-1 by default)."""
+    import os
+    from openai import OpenAI
+    audio = await request.body()
+    if not audio or len(audio) > 15 * 2**20:
+        raise HTTPException(422, 'Audio missing or too large')
+    if not os.getenv('OPENAI_API_KEY'):
+        raise HTTPException(503, 'AI_NOT_CONFIGURED')
+    kind = (request.headers.get('content-type') or 'audio/webm').split(';')[0]
+    ext = {'audio/webm': 'webm', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav'}.get(kind, 'webm')
+    client = OpenAI(base_url=os.getenv('OPENAI_BASE_URL') or None, timeout=40, max_retries=0)
+    try:
+        result = client.audio.transcriptions.create(model=os.getenv('OPENAI_TRANSCRIBE_MODEL') or 'whisper-1',
+                                                    file=(f'voice.{ext}', audio, kind), language='fa')
+    except Exception as exc:
+        raise HTTPException(502, f'TRANSCRIBE_FAILED: {type(exc).__name__}')
+    finally:
+        client.close()
+    return {'text': (getattr(result, 'text', '') or '').strip()}
