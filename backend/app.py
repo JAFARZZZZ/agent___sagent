@@ -17,9 +17,18 @@ from backend import shopping
 @asynccontextmanager
 async def lifespan(app):
     c.initialize()
+    import threading
+    def warm():  # pre-compute popular map/search queries so the first user does not wait
+        from backend import api_v2
+        for q in ('گوشی موبایل', 'هدفون بی سیم', 'ساعت هوشمند', 'کفش اسپرت', 'لپ تاپ', 'دوربین مداربسته', 'تلویزیون', 'جاروبرقی'):
+            try: api_v2.map_listings(q=q, category=None, budget=None, installment=False, open_now=False, include_accessories=False, lat=None, lon=None, products=120)
+            except Exception: pass
+    threading.Thread(target=warm, daemon=True).start()
     yield
 
 app = FastAPI(title='Torob shopping assistant', lifespan=lifespan)
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=2048)
 
 @app.exception_handler(KeyError)
 async def missing(request, exc):
@@ -33,6 +42,10 @@ class Preferences(BaseModel):
     lat: float | None = Field(default=None,ge=-90,le=90)
     lon: float | None = Field(default=None,ge=-180,le=180)
     radius: float = Field(default=10,gt=0,le=1000)
+    installment: bool = False
+    open_now: bool = False
+    area: str | None = Field(default=None,max_length=100)
+    priorities: list[Literal['price','distance','open','installment','fresh']] = Field(default_factory=list,max_length=5)
     @model_validator(mode='after')
     def coordinates(self):
         if (self.lat is None)!=(self.lon is None): raise ValueError('Supply both coordinates')
@@ -238,9 +251,16 @@ def chat(sid:str,request:ChatRequest):
     return run(sid,request.message)
 
 @app.get('/chat')
-def chat_page(): return FileResponse('frontend/chat.html')
+def chat_page():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse('/')
 
 @app.get('/map')
-def map_page(): return FileResponse('frontend/map.html')
+def map_page():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse('/')
+
+from backend.api_v2 import router as v2_router
+app.include_router(v2_router)
 
 app.mount('/',StaticFiles(directory='frontend',html=True),name='frontend')

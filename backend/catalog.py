@@ -34,6 +34,10 @@ def initialize():
                 p = json.loads(row['payload'])
                 text = ' '.join(str(p.get(k) or '') for k in ('persian_title','model','brand_name','category_name','specs'))
                 db.execute('INSERT INTO product_search VALUES (?,?)', (row['product_id'], normalize_text(text)))
+        from backend import search
+        search.initialize(db)
+    from backend import embeddings
+    embeddings.index.load()
 
 def record(table, key, value):
     with connect() as db:

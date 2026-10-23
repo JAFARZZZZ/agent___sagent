@@ -1,5 +1,108 @@
-<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ترب • همراه خرید</title><link rel="stylesheet" href="vendor/leaflet.css"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="responsive.css"><script defer src="vendor/leaflet.js"></script><script defer src="vendor/marked.js"></script><script defer src="content.js"></script><script defer src="app.js"></script></head><body class="chat-page">
-<header><a href="/" class="quiet" style="padding:8px;border-radius:8px">ترب</a><a class="brand" href="/">ترب <span>همراه خرید حضوری</span></a><div><button id="location-open" class="quiet">⌖ انتخاب محدوده</button><a href="seller.html">پنل فروشنده</a></div></header>
-<main><section id="welcome"><small class="eyebrow">انتخاب آگاهانه، خرید نزدیک‌تر</small><h1>چی می‌خوای <em>بخری؟</em></h1><p>با هم گزینه‌ها را پیدا کنیم، قیمت‌ها را مقایسه کنیم<br>و پیش از رفتن، شرایط خرید را بررسی کنیم.</p><div id="suggestions"><button>یه گوشی تا ۳۰ میلیون می‌خوام</button><button>هدفون بی‌سیم</button><button>لپ‌تاپ مناسب برنامه‌نویسی</button></div><div class="steps">۱ انتخاب کالا　 ←　 ۲ مقایسه فروشنده‌ها　 ←　 ۳ بررسی پیش از مراجعه</div></section><section id="timeline" aria-live="polite" aria-label="گفتگوی خرید"></section><p id="status" role="status"></p></main>
-<footer><div id="chips"></div><div class="toolbar"><button id="filters-open" class="quiet">فیلترها</button><button id="compare" class="quiet">مقایسه کالاها</button><label><input id="ai-mode" type="checkbox" checked> دستیار هوشمند</label><label><input id="refine" type="checkbox"> تکمیل عبارت قبلی</label></div><form id="composer"><textarea id="message" rows="1" maxlength="3000" aria-label="پیام شما" placeholder="چی می‌خوای بخری یا درباره نتایج چی می‌خوای بدونی؟" required></textarea><button id="send" aria-label="ارسال">↑</button></form><small>قیمت‌ها تاریخی‌اند؛ موجودی قطعی نیست. تأیید فروشنده شبیه‌سازی است.</small></footer>
-<dialog id="filters"><form id="filter-form"><h2>محدوده و فیلترهای خرید</h2><label>سقف قیمت • تومان<input id="budget" type="number" min="1"></label><label>دسته‌بندی<select id="category"><option value="">همه دسته‌ها</option></select></label><label>شعاع • کیلومتر<input id="radius" type="number" min="1" max="1000" value="10"></label><button type="button" id="manual-location" class="quiet">انتخاب موقعیت روی نقشه</button><button type="button" id="gps" class="quiet">موقعیت من</button><p>موقعیت انتخابی برای فیلتر همین نشست ذخیره می‌شود. فاصله‌ها مستقیم‌اند.</p><button>اعمال فیلترها</button><button type="button" id="reset" class="quiet">پاک‌کردن فیلترها</button><button type="button" id="filters-close" class="quiet">بستن</button></form></dialog></body></html>
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#E8336B">
+  <title>تربچه · دستیار خرید حضوری</title>
+  <link rel="icon" href="assets/mascot.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="vendor/leaflet.css">
+  <link rel="stylesheet" href="vendor/MarkerCluster.css">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="app" id="app" data-view="chat">
+  <section class="chat-pane" aria-label="گفتگو">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" id="logo"></span>
+        <div>
+          <h1>تربچه</h1>
+          <p>دستیار خرید حضوری از فروشگاه‌های تهران</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn mobile-only" id="toMap" type="button" aria-label="نمایش نقشه">
+          <svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14"/></svg>
+          <span class="badge" id="mapBadge" hidden></span>
+        </button>
+        <button class="icon-btn" id="newChat" type="button" aria-label="گفتگوی جدید" title="گفتگوی جدید">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button class="icon-btn" id="themeBtn" type="button" aria-label="تغییر تم" title="تم روشن/تیره">
+          <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <ol class="steps" id="steps" aria-label="مراحل خرید">
+      <li data-step="1"><b>۱</b><span>انتخاب کالا</span></li>
+      <li data-step="2"><b>۲</b><span>محدوده</span></li>
+      <li data-step="3"><b>۳</b><span>مقایسه</span></li>
+      <li data-step="4"><b>۴</b><span>هماهنگی</span></li>
+    </ol>
+
+    <div class="prefbar" id="prefbar" aria-label="شرایط خرید"></div>
+
+    <main class="thread" id="thread" aria-live="polite"></main>
+
+    <div class="compare-tray" id="compareTray" hidden></div>
+
+    <form class="composer" id="composer" autocomplete="off">
+      <div class="suggest" id="suggest"></div>
+      <div class="attach" id="attach" hidden></div>
+      <div class="input-row">
+        <button class="icon-btn in" id="imgBtn" type="button" aria-label="جستجو با عکس" title="جستجو با عکس"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+        <input type="file" id="imgInput" accept="image/*" hidden>
+        <textarea id="input" rows="1" maxlength="2000" placeholder="بگو دنبال چی هستی…"></textarea>
+        <button class="icon-btn in" id="micBtn" type="button" aria-label="پیام صوتی" title="پیام صوتی"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+        <button class="send" id="send" type="submit" aria-label="ارسال">
+          <svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>
+        </button>
+      </div>
+      <div class="recbar" id="recbar" hidden>
+        <button type="button" class="icon-btn" id="recCancel" aria-label="لغو"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        <span class="rdot"></span><span id="recTime">۰:۰۰</span>
+        <span class="rwave" id="recWave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="rhint">دارم گوش می‌دم…</span>
+        <button type="button" class="send" id="recStop" aria-label="ارسال صدا"><svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg></button>
+      </div>
+    </form>
+  </section>
+
+  <section class="map-pane" aria-label="نقشه">
+    <div id="map"></div>
+    <div class="map-head" id="mapHead"></div>
+    <div class="map-legend">
+      <span><i class="dot open"></i>باز</span>
+      <span><i class="dot unknown"></i>نامشخص</span>
+      <span><i class="dot closed"></i>بسته</span>
+    </div>
+    <div class="map-fabs">
+      <button class="fab round" id="locateBtn" type="button" aria-label="موقعیت من" title="موقعیت من"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><circle cx="12" cy="12" r="7"/></svg></button>
+    </div>
+    <div class="strip" id="strip"></div>
+    <button class="chat-fab mobile-only" id="toChat" type="button" aria-label="بازگشت به گفتگو">
+      <span class="cf-av" id="chatFabAv"></span>
+      <span class="cf-tx"><b>گفتگو با تربچه</b><small>سؤال داری؟ بپرس</small></span>
+      <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="badge" id="chatFabCount" hidden></span>
+    </button>
+    <div class="pick-hint" id="pickHint" hidden>روی نقشه بزن تا موقعیتت ثبت بشه <button type="button" data-act="cancel-pick">انصراف</button></div>
+  </section>
+
+  <aside class="sheet" id="sheet" aria-modal="true" role="dialog" hidden>
+    <div class="sheet-card">
+      <button class="icon-btn sheet-close" type="button" data-act="close-sheet" aria-label="بستن"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="sheet-body" id="sheetBody"></div>
+    </div>
+  </aside>
+  <div class="popover" id="popover" hidden></div>
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet.markercluster.js"></script>
+<script src="vendor/marked.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
