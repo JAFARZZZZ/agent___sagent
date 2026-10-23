@@ -33,6 +33,9 @@ class Preferences(BaseModel):
     lat: float | None = Field(default=None,ge=-90,le=90)
     lon: float | None = Field(default=None,ge=-180,le=180)
     radius: float = Field(default=10,gt=0,le=1000)
+    installment: bool = False
+    open_now: bool = False
+    area: str | None = Field(default=None,max_length=100)
     @model_validator(mode='after')
     def coordinates(self):
         if (self.lat is None)!=(self.lon is None): raise ValueError('Supply both coordinates')
@@ -238,9 +241,16 @@ def chat(sid:str,request:ChatRequest):
     return run(sid,request.message)
 
 @app.get('/chat')
-def chat_page(): return FileResponse('frontend/chat.html')
+def chat_page():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse('/')
 
 @app.get('/map')
-def map_page(): return FileResponse('frontend/map.html')
+def map_page():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse('/')
+
+from backend.api_v2 import router as v2_router
+app.include_router(v2_router)
 
 app.mount('/',StaticFiles(directory='frontend',html=True),name='frontend')

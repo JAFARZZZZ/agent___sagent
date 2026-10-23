@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" role="img" aria-label="تربچه">
+  <defs>
+    <linearGradient id="rb" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F2477C"/>
+      <stop offset=".62" stop-color="#E8336B"/>
+      <stop offset="1" stop-color="#FFD3E0"/>
+    </linearGradient>
+    <linearGradient id="lf" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1C9A5B"/>
+      <stop offset="1" stop-color="#3CCB82"/>
+    </linearGradient>
+  </defs>
+  <g class="m-leaves">
+    <path d="M58 37 C 44 30 34 16 40 6 C 50 10 58 22 58 37 Z" fill="url(#lf)"/>
+    <path d="M62 37 C 76 30 88 18 82 8 C 70 12 62 24 62 37 Z" fill="url(#lf)"/>
+    <path d="M60 38 C 52 24 54 8 61 2 C 68 9 69 24 60 38 Z" fill="#2BB673"/>
+    <path d="M60 36 L 61 8" stroke="#178a50" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+  </g>
+  <g class="m-legs" stroke="#2A1F2D" stroke-width="3.2" stroke-linecap="round" fill="none">
+    <path d="M50 104 Q 47 116 45 126"/>
+    <path d="M70 104 Q 73 116 75 126"/>
+  </g>
+  <ellipse cx="42" cy="128" rx="7" ry="3.6" fill="#B81F50"/>
+  <ellipse cx="78" cy="128" rx="7" ry="3.6" fill="#B81F50"/>
+  <g class="m-arm-r" stroke="#2A1F2D" stroke-width="3.2" stroke-linecap="round" fill="none">
+    <path d="M95 80 Q 104 86 107 96"/>
+  </g>
+  <circle cx="107.5" cy="97.5" r="4" fill="#F2477C" stroke="#2A1F2D" stroke-width="2"/>
+  <g class="m-arm-l">
+    <path d="M25 78 Q 15 72 12 60" stroke="#2A1F2D" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+    <circle cx="11.5" cy="57.5" r="4.4" fill="#F2477C" stroke="#2A1F2D" stroke-width="2"/>
+  </g>
+  <path class="m-body" d="M60 34 C 92 34 104 60 96 82 C 90 98 74 106 64 122 Q 60 130 56 122 C 46 106 30 98 24 82 C 16 60 28 34 60 34 Z" fill="url(#rb)"/>
+  <path d="M60 128 Q 58 134 62 137" stroke="#E8A0B6" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <ellipse cx="42" cy="50" rx="9" ry="5" fill="#fff" opacity=".35" transform="rotate(-28 42 50)"/>
+  <g class="m-eyes">
+    <ellipse cx="48" cy="68" rx="4.6" ry="6.2" fill="#2A1F2D"/>
+    <ellipse cx="72" cy="68" rx="4.6" ry="6.2" fill="#2A1F2D"/>
+    <circle cx="49.6" cy="65.6" r="1.7" fill="#fff"/>
+    <circle cx="73.6" cy="65.6" r="1.7" fill="#fff"/>
+  </g>
+  <ellipse cx="39" cy="79" rx="5.5" ry="3.4" fill="#FF9DBB" opacity=".8"/>
+  <ellipse cx="81" cy="79" rx="5.5" ry="3.4" fill="#FF9DBB" opacity=".8"/>
+  <path d="M51 79 Q 60 91 69 79 Q 60 83 51 79 Z" fill="#2A1F2D"/>
+  <path d="M55.5 84.5 Q 60 88.5 64.5 84.5 Q 60 83 55.5 84.5 Z" fill="#FF7A9C"/>
+</svg>

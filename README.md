@@ -1,4 +1,13 @@
-# Torob in-store shopping assistant
+# Torob in-store shopping assistant — «تربچه»
+
+## What's new (hybrid search + chat/map agent)
+
+- **UI**: one RTL, mobile-first screen: chat on the right, live Leaflet map on the left (tabs on mobile). Product cards, side-by-side compare, explainable store ranking (price / distance / open-now / price freshness), in-mall location (mall, floor, unit), installment providers, simulated seller follow-up with automatic alternatives, budget/location/radius/installment/open-now chips. Mascot: `frontend/assets/mascot.svg` (original artwork).
+- **Search** (`backend/search.py`): FTS5 BM25 weighted by field (title > brand/model > category > specs) + vector search (`backend/embeddings.py`), fused with Reciprocal Rank Fusion, then constraint filtering with offer evidence. `GET /api/search`.
+- **Vector index**: `python -m scripts.build_embeddings` (provider from `.env`: `openai` = OpenAI/AvalAI `text-embedding-3-small` @512 dims, `local` = e.g. `BAAI/bge-m3`, `hashing` = offline n-grams). Restart the server after building.
+- **Agent** (`backend/agent/chat_agent.py`, `tools_v2.py`): OpenAI-compatible Chat Completions with tools, streamed to the UI over SSE (`POST /api/sessions/{id}/agent`). Tools: search_products, compare_products, find_stores, set_location, update_preferences, contact_seller, check_inquiry, get_store_details.
+- **Check the provider**: `python -m scripts.check_ai`.
+- Seller replies are simulated (dataset phone numbers are fake); the seller panel at `/seller.html` can still answer manually.
 
 Persian RTL shopping interface backed by FastAPI and the complete local Torob catalog. The homepage `/` opens the conversation/search workspace; `/map` opens an on-demand map of the selected product or basket. The web agent uses the official OpenAI Responses API with validated catalog tools and persistent conversation. See [current planner status](docs/chat_first_planner.md).
 
