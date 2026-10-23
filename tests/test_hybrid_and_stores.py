@@ -130,3 +130,46 @@ class IntentAndConversationTests(unittest.TestCase):
         self.assertEqual([e['ui'] for e in events if e['type'] == 'component'], ['insight', 'question'])
         self.assertNotIn('message', [e['type'] for e in events])
         self.assertEqual(events[-1]['suggestions'], [])
+
+
+class GroundingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        c.initialize()
+
+    def _session(self):
+        with TestClient(app) as client:
+            return client.post('/api/sessions', json={}).json()['id']
+
+    def test_wrong_price_in_answer_is_corrected_or_removed(self):
+        from backend.agent.chat_agent import run_stream
+        sid, calls = self._session(), []
+
+        def create(**kw):
+            calls.append(kw)
+            if len(calls) == 1:
+                return N(choices=[N(message=N(content='', tool_calls=[N(id='s', type='function', function=N(name='search_products', arguments=json.dumps({'query': 'هدفون بی سیم'})))]))])
+            # model invents a price, also when asked to rewrite
+            return N(choices=[N(message=N(content='بهترینش ۹۹۹ میلیون تومنه.', tool_calls=None))])
+        events = list(run_stream(sid, 'هدفون بی سیم', client=N(chat=N(completions=N(create=create)))))
+        text = next(e['text'] for e in events if e['type'] == 'message')
+        self.assertEqual(len(calls), 3)  # search, answer, self-check rewrite
+        self.assertNotIn('۹۹۹', text)
+        self.assertIn('قیمت روی کارت', text)
+
+    def test_photo_check_uses_vision_verdicts(self):
+        from backend.agent import vision
+        from backend import search as s_
+        ids = [r['product_id'] for r in s_.search('گوشی سامسونگ', limit=2)['results']]
+        fake = N(chat=N(completions=N(create=lambda **kw: N(choices=[N(message=N(content=json.dumps(
+            {'items': [{'n': 1, 'fits': True, 'confidence': .9, 'seen': 'گوشی'}, {'n': 2, 'fits': False, 'issue': 'فقط قاب است'}]})))]))))
+        prods = [{'product_id': i, 'persian_title': 't', 'image_url': None} for i in ids]
+        os_env = __import__('os').environ
+        old = os_env.get('OPENAI_MODEL'); os_env['OPENAI_MODEL'] = 'fake'
+        try:
+            out = vision.inspect(prods, 'گوشی برای عکاسی', client=fake)
+        finally:
+            if old is None: os_env.pop('OPENAI_MODEL')
+            else: os_env['OPENAI_MODEL'] = old
+        self.assertEqual([x['fits'] for x in out['items']], [True, False])
+        self.assertEqual(out['items'][1]['issue'], 'فقط قاب است')

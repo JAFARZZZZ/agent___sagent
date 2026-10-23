@@ -353,6 +353,13 @@ function renderQuestion(d, id) {
     <button type="button" class="other" data-act="qother">چیز دیگه‌ای…</button></div>
     ${d.multi ? `<button class="btn primary sm" type="button" data-act="qsend" data-q="${id}">تأیید انتخاب‌ها</button>` : ''}</div></div>`;
 }
+function renderVision(d) {
+  const ok = d.items.filter(x => x.fits).length;
+  return `<div class="vision"><div class="vh">👀 <b>عکس ${fa(d.items.length)} کالا رو نگاه کردم</b><span>${fa(ok)} مناسب · ${fa(d.items.length - ok)} کنار گذاشته شد</span></div>
+    <div class="vgrid">${d.items.map(x => `<div class="vi ${x.fits ? 'ok' : 'no'}" data-act="detail" data-pid="${esc(x.product_id)}" title="${esc(x.persian_title)}">
+      <span class="vimg">${imgTag(x.image_url)}<i>${x.fits ? '✓' : '✕'}</i></span>
+      <small>${esc(x.issue || x.seen || x.persian_title || '')}</small></div>`).join('')}</div></div>`;
+}
 function renderPicks(d) {
   return `<div class="block-head"><strong>✨ پیشنهادهای تربچه برای تو</strong><span>بر اساس نیازی که گفتی</span></div><div class="picks">${d.picks.map((p, i) => `
     <article class="pick" data-pid="${esc(p.product_id)}">
@@ -381,6 +388,8 @@ function showComponent(c) {
       el.insertAdjacentHTML('afterbegin', `<button class="expand" type="button" data-act="expand">همه‌ی نتایج جستجو (${esc(el.querySelector('.block-head strong')?.textContent || '')}) ▾</button>`);
     }
     addBlock(renderPicks(d)); setStep(1);
+  } else if (c.ui === 'vision') {
+    addBlock(renderVision(d));
   } else if (c.ui === 'insight') {
     addBlock(renderInsight(d));
   } else if (c.ui === 'question') {
@@ -534,7 +543,7 @@ const Map_ = (() => {
       }});
     map.addLayer(cluster);
     map.on('click', e => {if (S.pick) {stopPick(); patchPrefs({lat: e.latlng.lat, lon: e.latlng.lng, area: null, radius: S.prefs.lat == null ? 3 : S.prefs.radius}); toast('موقعیتت روی نقشه ثبت شد')}});
-    map.on('moveend', () => {if (mode === 'explore') {clearTimeout(timer); timer = setTimeout(load, 350)}});
+    map.on('moveend', () => {clearTimeout(timer); timer = setTimeout(() => {if (items.length) strip(inView())}, 120)});
     map.on('zoomend', () => $('#map').classList.toggle('zoom-hi', map.getZoom() >= 17));
     idle();
     const pane = $('.map-pane');
@@ -553,25 +562,34 @@ const Map_ = (() => {
   function headExplore(r) {
     const cats = (r?.intent || []).map(c => c.name).slice(0, 2).join('، ');
     $('#mapHead').innerHTML = `<form class="msearch on" id="mapSearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="q" value="${esc(explore.q)}" autocomplete="off"><button type="button" class="icon-btn" data-act="clear-map" aria-label="پاک کردن">${ICON.x}</button></form>
-      <div class="mstat">${r ? `${fa(r.total_shops)} فروشگاه در این محدوده${cats ? ' · ' + esc(cats) : ''}${r.hidden_accessories ? ' · لوازم جانبی پنهان' : ''}` : 'در حال جستجو…'}</div>`;
+      <div class="mstat">${r ? `${fa(r.total_shops)} فروشگاه در تهران${cats ? ' · ' + esc(cats) : ''}${r.hidden_accessories ? ' · لوازم جانبی پنهان' : ''}` : 'در حال جستجو…'}</div>`;
     bindSearch();
   }
   async function setExplore(e) {
     explore = {q: e.q, category: e.category || null}; mode = 'explore'; product = null; map.closePopup();
     headExplore(null); await load(true);
   }
+  function inView() {
+    const b = map.getBounds().pad(-0.05);
+    const vis = items.filter(x => b.contains([x.lat, x.lon]));
+    return vis.length ? vis : [];
+  }
+  function loading() {
+    $('#strip').innerHTML = `<div class="lcards">${Array.from({length: 4}, () => '<article class="lcard sk"><span class="li"></span><div class="lb"><i></i><i></i><i></i></div></article>').join('')}</div>`;
+  }
   async function load(fit = false) {
     if (mode !== 'explore' || !explore) return;
-    const id = ++reqId, b = map.getBounds();
-    const area = fit ? {west: 51.1, east: 51.75, south: 35.55, north: 35.85} : {west: b.getWest(), east: b.getEast(), south: b.getSouth(), north: b.getNorth()};
-    const r = await api('/api/map/listings?' + qs({q: explore.q, category: explore.category, ...area, budget: S.prefs.budget, installment: S.prefs.installment || null, open_now: S.prefs.open_now || null, lat: S.prefs.lat, lon: S.prefs.lon})).catch(() => null);
-    if (id !== reqId || !r) return;
+    const id = ++reqId; loading();
+    const r = await api('/api/map/listings?' + qs({q: explore.q, category: explore.category, budget: S.prefs.budget, installment: S.prefs.installment || null, open_now: S.prefs.open_now || null, lat: S.prefs.lat, lon: S.prefs.lon})).catch(() => null);
+    if (id !== reqId) return;
+    if (!r) {strip([]); return}
     items = r.listings.map((x, i) => ({...x, rank: i}));
-    draw(items); headExplore(r); strip(items, r);
-    if (fit && items.length) {
-      const pts = items.slice(0, 60).map(x => [x.lat, x.lon]); if (S.prefs.lat != null) pts.push([S.prefs.lat, S.prefs.lon]);
-      map.fitBounds(pts, {padding: [90, 60], maxZoom: 15});
+    draw(items, {reset: true}); headExplore(r);
+    if (items.length) {
+      const pts = items.slice(0, 80).map(x => [x.lat, x.lon]); if (S.prefs.lat != null) pts.push([S.prefs.lat, S.prefs.lon]);
+      map.fitBounds(pts, {padding: [90, 60], maxZoom: 15, animate: false});
     }
+    strip(inView().length ? inView() : items, r);
   }
   function pinHtml(x, top) {
     const st = x.open?.status || 'unknown';
@@ -606,7 +624,7 @@ const Map_ = (() => {
   }
   function strip(list, r) {
     if (!list.length) {
-      $('#strip').innerHTML = `<div class="empty-map">${mascot()}<div><b>تو این محدوده چیزی پیدا نشد</b><p>نقشه رو جابه‌جا کن، کوچیک‌تر کن یا فیلترها (بودجه، قسطی، الان باز) رو تغییر بده.</p></div></div>`;
+      $('#strip').innerHTML = items.length ? `<div class="empty-map">${mascot()}<div><b>تو این قسمت نقشه فروشنده‌ای نیست</b><p>نقشه رو کوچیک‌تر کن یا جابه‌جا کن؛ ${fa(items.length)} فروشگاه جای دیگه‌ی تهران هستن.</p></div></div>` : `<div class="empty-map">${mascot()}<div><b>چیزی با این شرایط پیدا نشد</b><p>نقشه رو جابه‌جا کن، کوچیک‌تر کن یا فیلترها (بودجه، قسطی، الان باز) رو تغییر بده.</p></div></div>`;
       return;
     }
     $('#strip').innerHTML = `<div class="lcards">${list.slice(0, 40).map(x => `<article class="lcard" data-shop="${esc(x.shop_id)}" data-act="card-focus">
@@ -657,7 +675,7 @@ const Map_ = (() => {
     L.circle([p.lat, p.lon], {radius: (p.radius || 3) * 1000, color: '#2F7BF6', weight: 1.5, fillOpacity: .04, dashArray: '6 6', interactive: false}).addTo(userLayer);
   }
   function badge(n) {const b = $('#mapBadge'); b.hidden = !n; b.textContent = n ? fa(n) : ''; const c = $('#chatFabCount'); if (c) c.hidden = true}
-  function refresh() {if (mode === 'explore') load()}
+  function refresh() {if (mode === 'explore') load(true)}
   const fly = (lat, lon, z = 14) => map?.flyTo([lat, lon], z, {duration: .7});
   const invalidate = () => map && setTimeout(() => map.invalidateSize(), 60);
   return {init, setUser, showStores, focus, fly, clear: idle, invalidate, highlight, setExplore, backToExplore, refresh, cardFocus, get explore() {return explore}};
@@ -762,7 +780,7 @@ async function newSession() {
       S.sid = saved; S.prefs = sum.preferences; renderPrefs();
       if (sum.chat_history?.length) {
         thread.innerHTML = '';
-        for (const m of sum.chat_history) m.role === 'user' ? addUser(m.content) : addBot(m.content);
+        for (const m of sum.chat_history) m.role === 'user' ? addUser(m.content) : addBot(String(m.content).split('\n[نمایش')[0]);
         addBlock('<div class="note">— ادامه گفتگوی قبلی · برای شروع تازه دکمه + را بزن —</div>');
         restored = true;
       }

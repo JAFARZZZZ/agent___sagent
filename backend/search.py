@@ -206,10 +206,32 @@ def detect_intent(db, query: str, lexical_ids: list[str]) -> dict:
             'accessory_categories': [e['id'] for e in accessory]}
 
 
+_rank_cache: dict = {}
+RANK_TTL = 300
+
+
 def rank(query: str = '', category: str | None = None, budget: int | None = None,
          lat: float | None = None, lon: float | None = None, radius: float | None = None,
          installment: bool = False, open_now: bool = False, use_vectors: bool = True,
          include_accessories: bool = False) -> dict:
+    """Cached wrapper: the map, the chat and pagination reuse the same ranking for a few minutes."""
+    key = (normalize_text(query).strip(), category, budget, round(lat, 4) if lat is not None else None,
+           round(lon, 4) if lon is not None else None, radius, installment, open_now, use_vectors, include_accessories,
+           int(time.time() // 60) if open_now else 0)
+    hit = _rank_cache.get(key)
+    if hit and time.monotonic() - hit[0] < RANK_TTL:
+        return hit[1]
+    result = _rank(query, category, budget, lat, lon, radius, installment, open_now, use_vectors, include_accessories)
+    if len(_rank_cache) > 256:
+        _rank_cache.clear()
+    _rank_cache[key] = (time.monotonic(), result)
+    return result
+
+
+def _rank(query: str = '', category: str | None = None, budget: int | None = None,
+          lat: float | None = None, lon: float | None = None, radius: float | None = None,
+          installment: bool = False, open_now: bool = False, use_vectors: bool = True,
+          include_accessories: bool = False) -> dict:
     """Full ranked candidate list (score, product_id, evidence) plus retrieval/intent metadata."""
     started = time.monotonic()
     constrained = any(x is not None and x is not False for x in (budget, lat, installment or None, open_now or None))

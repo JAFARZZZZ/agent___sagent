@@ -17,9 +17,18 @@ from backend import shopping
 @asynccontextmanager
 async def lifespan(app):
     c.initialize()
+    import threading
+    def warm():  # pre-compute popular map/search queries so the first user does not wait
+        from backend import api_v2
+        for q in ('گوشی موبایل', 'هدفون بی سیم', 'ساعت هوشمند', 'کفش اسپرت', 'لپ تاپ', 'دوربین مداربسته', 'تلویزیون', 'جاروبرقی'):
+            try: api_v2.map_listings(q=q, category=None, budget=None, installment=False, open_now=False, include_accessories=False, lat=None, lon=None, products=120)
+            except Exception: pass
+    threading.Thread(target=warm, daemon=True).start()
     yield
 
 app = FastAPI(title='Torob shopping assistant', lifespan=lifespan)
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=2048)
 
 @app.exception_handler(KeyError)
 async def missing(request, exc):

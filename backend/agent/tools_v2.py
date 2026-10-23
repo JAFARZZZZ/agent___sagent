@@ -13,6 +13,7 @@ from backend import api_v2
 from backend import catalog as c
 from backend import search as hybrid
 from backend import stores
+from backend.agent import prices as P
 
 
 class Strict(BaseModel):
@@ -43,6 +44,11 @@ class Pick(Strict):
 
 class RecommendArgs(Strict):
     picks: list[Pick] = Field(min_length=1, max_length=3)
+
+
+class PhotoArgs(Strict):
+    product_ids: list[str] = Field(min_length=1, max_length=6)
+    need: str = Field(max_length=200, description='What the user wants, in Persian (type, use, style), so the photos can be judged against it')
 
 
 class ProductArgs(Strict):
@@ -90,6 +96,7 @@ SPECS = {
     'explore_needs': (NeedsArgs, 'insight', 'Before asking the user questions: what the catalogue really has for this kind of product (categories, price spread, common brands and spec values, number of products sold in physical shops). Use its facts to craft grounded options.'),
     'ask_user': (AskArgs, 'question', 'Ask ONE friendly clarifying question with tappable options, then stop and wait for the answer. Use while the need is still vague.'),
     'search_products': (SearchArgs, 'products', 'Hybrid (keyword + semantic) search over the Torob catalog. Accessories are hidden automatically unless include_accessories. Session constraints (budget, location radius, installment, open-now) are applied automatically.'),
+    'check_product_photos': (PhotoArgs, 'vision', 'Look at the product PHOTOS with a vision model and judge whether each candidate really is what the user wants (not an accessory, toy, wrong type, damaged…). Use on the top 3-6 search candidates before recommending.'),
     'recommend_products': (RecommendArgs, 'picks', 'Present your 1-3 best matches from search results with a personal reason each. Always call after a search that has relevant results.'),
     'get_product_details': (ProductArgs, 'product', 'Full specifications and images of one product.'),
     'compare_products': (CompareArgs, 'compare', 'Side-by-side specification table plus price range and number of in-person shops for 2-4 products.'),
@@ -135,6 +142,13 @@ def execute(name: str, arguments: dict, sid: str) -> tuple[str | None, dict]:
     if name == 'ask_user':
         return ui, {'question': args.question, 'options': args.options, 'multi': args.multi}
 
+    if name == 'check_product_photos':
+        from backend.agent import vision
+        data = hybrid.payloads(args.product_ids)
+        products = [{'product_id': pid, 'persian_title': data[pid].get('persian_title'),
+                     'image_url': (data[pid].get('image_urls') or [None])[0]} for pid in args.product_ids if pid in data]
+        return ui, vision.inspect(products, args.need)
+
     if name == 'recommend_products':
         ids = [x.product_id for x in args.picks]
         data = hybrid.payloads(ids)
@@ -146,7 +160,8 @@ def execute(name: str, arguments: dict, sid: str) -> tuple[str | None, dict]:
             if x.product_id not in data:
                 continue
             card = hybrid.card(data[x.product_id], x.product_id, evidence.get(x.product_id, {}))
-            picks.append({**card, 'reason': x.reason, 'label': x.label})
+            own = {v for v in (card['recorded_min_price'], card['recorded_max_price']) if v}
+            picks.append({**card, 'reason': P.strip(x.reason, own), 'label': x.label})
         s['selected_product_id'] = picks[0]['product_id'] if picks else s.get('selected_product_id'); a.save(sid, s)
         return ui, {'picks': picks}
 
@@ -235,20 +250,26 @@ def compact_for_model(name: str, data: dict) -> dict:
     if name == 'ask_user':
         return {'asked': True, 'note': 'Question shown with buttons. Stop now and wait for the user.'}
     if name == 'recommend_products':
-        return {'shown': [x['product_id'] for x in data['picks']]}
+        return {'shown': [{'product_id': x['product_id'], 'title': x['persian_title'], 'min_price_text': P.text(x['recorded_min_price'])} for x in data['picks']]}
+    if name == 'check_product_photos':
+        return {'items': [{k: x[k] for k in ('product_id', 'persian_title', 'fits', 'confidence', 'seen', 'issue', 'style')} for x in data['items']]}
     if name == 'search_products':
         return {'total': data['total'], 'constraints': data['constraints'], 'categories': data.get('intent', {}).get('categories'),
                 'hidden_accessories': data.get('intent', {}).get('hidden_accessories'), 'results': [
-            {k: r.get(k) for k in ('product_id', 'persian_title', 'brand_name', 'category_name', 'recorded_min_price',
-                                   'recorded_max_price', 'shop_count', 'nearest_km', 'installment_shops', 'open_shops')}
-            for r in data['results']]}
+            {'n': i + 1, **{k: r.get(k) for k in ('product_id', 'persian_title', 'brand_name', 'category_name', 'shop_count',
+                                                  'nearest_km', 'installment_shops', 'open_shops')},
+             'min_price_text': P.text(r.get('recorded_min_price')) or 'قیمت ثبت نشده',
+             'max_price_text': P.text(r.get('recorded_max_price')) if r.get('recorded_max_price') != r.get('recorded_min_price') else None,
+             'min_price': r.get('recorded_min_price')}
+            for i, r in enumerate(data['results'])]}
     if name == 'find_stores':
         return {'product': data['product']['persian_title'], 'total': data['total'], 'summary': data['summary'],
                 'excluded_by_constraints': data['excluded'], 'ranking': data['ranking'], 'results': [
-                    {'offer_id': r['offer_id'], 'shop_id': r['shop']['shop_id'], 'shop': r['shop']['name'], 'price_toman': r['price_toman'],
+                    {'n': i + 1, 'offer_id': r['offer_id'], 'shop_id': r['shop']['shop_id'], 'shop': r['shop']['name'],
+                     'price_toman': r['price_toman'], 'price_text': P.text(r['price_toman']) or 'قیمت ثبت نشده',
                      'distance_km': r['shop']['distance_km'], 'open': r['shop']['open']['label'], 'mall': r['shop']['mall']['summary'],
                      'installment': [x['provider'] for x in r['shop']['installment']], 'price_age_days': r['freshness']['age_days'],
-                     'reasons': r['reasons']} for r in data['results'][:8]]}
+                     'reasons': r['reasons']} for i, r in enumerate(data['results'][:8])]}
     if name == 'compare_products':
         return {'products': [p['persian_title'] for p in data['products']], 'rows': data['rows'][:15], 'market': data['market']}
     if name == 'get_product_details':
