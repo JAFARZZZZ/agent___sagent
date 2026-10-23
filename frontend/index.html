@@ -7,6 +7,7 @@
   <title>تربچه · دستیار خرید حضوری</title>
   <link rel="icon" href="assets/mascot.svg" type="image/svg+xml">
   <link rel="stylesheet" href="vendor/leaflet.css">
+  <link rel="stylesheet" href="vendor/MarkerCluster.css">
   <link rel="stylesheet" href="assets/app.css">
 </head>
 <body>
@@ -50,7 +51,7 @@
     <form class="composer" id="composer" autocomplete="off">
       <div class="suggest" id="suggest"></div>
       <div class="input-row">
-        <textarea id="input" rows="1" maxlength="2000" placeholder="بگو دنبال چی هستی… مثلاً «هدفون بی‌سیم تا ۳ میلیون نزدیک جمهوری»"></textarea>
+        <textarea id="input" rows="1" maxlength="2000" placeholder="بگو دنبال چی هستی…"></textarea>
         <button class="send" id="send" type="submit" aria-label="ارسال">
           <svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>
         </button>
@@ -63,13 +64,19 @@
     <div class="map-head" id="mapHead"></div>
     <div class="map-legend">
       <span><i class="dot open"></i>باز</span>
-      <span><i class="dot unknown"></i>ساعت نامشخص</span>
+      <span><i class="dot unknown"></i>نامشخص</span>
       <span><i class="dot closed"></i>بسته</span>
     </div>
     <div class="map-fabs">
-      <button class="fab" id="locateBtn" type="button"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><circle cx="12" cy="12" r="7"/></svg><span>موقعیت من</span></button>
-      <button class="fab mobile-only" id="toChat" type="button"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4V5Z"/></svg><span>گفتگو</span></button>
+      <button class="fab round" id="locateBtn" type="button" aria-label="موقعیت من" title="موقعیت من"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><circle cx="12" cy="12" r="7"/></svg></button>
     </div>
+    <div class="strip" id="strip"></div>
+    <button class="chat-fab mobile-only" id="toChat" type="button" aria-label="بازگشت به گفتگو">
+      <span class="cf-av" id="chatFabAv"></span>
+      <span class="cf-tx"><b>گفتگو با تربچه</b><small>سؤال داری؟ بپرس</small></span>
+      <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="badge" id="chatFabCount" hidden></span>
+    </button>
     <div class="pick-hint" id="pickHint" hidden>روی نقشه بزن تا موقعیتت ثبت بشه <button type="button" data-act="cancel-pick">انصراف</button></div>
   </section>
 
@@ -83,6 +90,7 @@
   <div class="toast" id="toast" role="status" hidden></div>
 </div>
 <script src="vendor/leaflet.js"></script>
+<script src="vendor/leaflet.markercluster.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>

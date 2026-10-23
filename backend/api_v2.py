@@ -242,3 +242,65 @@ def patch_preferences(sid: str, body: PrefsPatch):
     s['preferences'] = a.Preferences.model_validate(p).model_dump()
     a.save(sid, s)
     return s['preferences']
+
+
+# ------------------------------------------------------------ map explore: listings in the viewport
+
+@router.get('/api/map/listings')
+def map_listings(q: str = Query('', max_length=300), category: str | None = None,
+                 west: float = Query(51.0, ge=-180, le=180), south: float = Query(35.4, ge=-90, le=90),
+                 east: float = Query(51.8, ge=-180, le=180), north: float = Query(36.0, ge=-90, le=90),
+                 budget: int | None = Query(None, gt=0), installment: bool = False, open_now: bool = False,
+                 include_accessories: bool = False, lat: float | None = None, lon: float | None = None,
+                 products: int = Query(80, ge=1, le=200), session_id: str | None = None):
+    """Shops in the viewport that carry the best-matching products, one card per shop (its best match)."""
+    if not q.strip() and not category:
+        return {'listings': [], 'total_shops': 0, 'products': 0, 'note': 'FILTER_FIRST'}
+    r = hybrid.rank(q, category, budget, None, None, None, installment, open_now, include_accessories=include_accessories)
+    ranked = [x for x in r['ranked'] if x[2].get('matching_offers')][:products]
+    order = {pid: i for i, (_, pid, _) in enumerate(ranked)}
+    if not order:
+        return {'listings': [], 'total_shops': 0, 'products': 0, 'intent': r['intent']['categories']}
+    marks = ','.join('?' * len(order))
+    sql = f'''SELECT o.offer_id, o.product_id, o.price_toman, o.payload, s.shop_id, s.lat, s.lon, s.payload
+              FROM offers o JOIN shops s USING(shop_id)
+              WHERE o.product_id IN ({marks}) AND s.lat BETWEEN ? AND ? AND s.lon BETWEEN ? AND ?'''
+    best: dict[str, dict] = {}
+    counts: dict[str, set] = {}
+    shop_payload: dict[str, dict] = {}
+    with c.connect() as db:
+        for offer_id, pid, price, opayload, shop_id, slat, slon, spayload in db.execute(sql, list(order) + [south, north, west, east]):
+            price = int(price) if price else None
+            if budget is not None and (not price or price > budget):
+                continue
+            if shop_id not in shop_payload:
+                shop_payload[shop_id] = json.loads(spayload)
+            shop = shop_payload[shop_id]
+            if installment and not stores.installment_providers(shop):
+                continue
+            key = (order[pid], price or 9e18)
+            counts.setdefault(shop_id, set()).add(pid)
+            if shop_id not in best or key < best[shop_id]['key']:
+                best[shop_id] = {'key': key, 'offer_id': offer_id, 'product_id': pid, 'price': price, 'lat': slat, 'lon': slon,
+                                 'changed': json.loads(opayload).get('last_price_changed_at')}
+    data = hybrid.payloads(list({b['product_id'] for b in best.values()}))
+    listings = []
+    for shop_id, b in best.items():
+        shop = shop_payload[shop_id]
+        status = stores.open_status(shop)
+        if open_now and status['status'] != 'open':
+            continue
+        p = data.get(b['product_id'], {})
+        listings.append({
+            'shop_id': shop_id, 'shop_name': shop.get('name'), 'lat': b['lat'], 'lon': b['lon'], 'area': shop.get('location_label'),
+            'open': status, 'installment': [x['provider'] for x in stores.installment_providers(shop)],
+            'mall': stores.mall_location(shop.get('address'))['summary'],
+            'distance_km': round(stores.distance_km(lat, lon, b['lat'], b['lon']), 2) if lat is not None and lon is not None else None,
+            'offer_id': b['offer_id'], 'price_toman': b['price'], 'freshness': stores.freshness(b['changed']),
+            'product': {'product_id': b['product_id'], 'title': p.get('persian_title'), 'image_url': (p.get('image_urls') or [None])[0],
+                        'category': p.get('category_name'), 'rank': b['key'][0]},
+            'more_matches': len(counts[shop_id]) - 1,
+        })
+    listings.sort(key=lambda x: (x['product']['rank'], x['price_toman'] or 9e18))
+    return {'listings': listings[:400], 'total_shops': len(listings), 'products': len(order),
+            'intent': r['intent']['categories'], 'hidden_accessories': r['hidden_accessories']}

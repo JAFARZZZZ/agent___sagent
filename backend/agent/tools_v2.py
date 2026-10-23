@@ -21,7 +21,28 @@ class Strict(BaseModel):
 
 class SearchArgs(Strict):
     query: str = Field(description='Short Persian product query: product type + brand/model/key attributes. No budget or location words.', max_length=200)
-    category_hint: str | None = Field(default=None, description='Optional Persian category name if the user clearly named one')
+    category_hint: str | None = Field(default=None, description='Optional Persian category name (from explore_needs) to restrict the search')
+    include_accessories: bool = Field(default=False, description='Only true if the user explicitly wants accessories/parts (قاب، گلس، شارژر…)')
+
+
+class NeedsArgs(Strict):
+    query: str = Field(description='Product type the user is thinking about, e.g. «گوشی موبایل» or «هدفون بی سیم»', max_length=120)
+
+
+class AskArgs(Strict):
+    question: str = Field(description='One short, warm Persian question about the most decision-relevant missing need', max_length=220)
+    options: list[str] = Field(min_length=2, max_length=6, description='2-6 short tappable answers grounded in explore_needs facts (price bands, brands, use cases)')
+    multi: bool = Field(default=False, description='True if the user may pick several options')
+
+
+class Pick(Strict):
+    product_id: str
+    reason: str = Field(max_length=200, description='Why this fits THIS user (their need/budget) using real data: price, shops, specs')
+    label: str | None = Field(default=None, max_length=30, description='Short badge e.g. «اقتصادی‌ترین», «بهترین دوربین», «پیشنهاد اصلی»')
+
+
+class RecommendArgs(Strict):
+    picks: list[Pick] = Field(min_length=1, max_length=3)
 
 
 class ProductArgs(Strict):
@@ -66,7 +87,10 @@ class Empty(Strict):
 
 
 SPECS = {
-    'search_products': (SearchArgs, 'products', 'Hybrid (keyword + semantic) search over the Torob catalog. Session constraints (budget, location radius, installment, open-now) are applied automatically.'),
+    'explore_needs': (NeedsArgs, 'insight', 'Before asking the user questions: what the catalogue really has for this kind of product (categories, price spread, common brands and spec values, number of products sold in physical shops). Use its facts to craft grounded options.'),
+    'ask_user': (AskArgs, 'question', 'Ask ONE friendly clarifying question with tappable options, then stop and wait for the answer. Use while the need is still vague.'),
+    'search_products': (SearchArgs, 'products', 'Hybrid (keyword + semantic) search over the Torob catalog. Accessories are hidden automatically unless include_accessories. Session constraints (budget, location radius, installment, open-now) are applied automatically.'),
+    'recommend_products': (RecommendArgs, 'picks', 'Present your 1-3 best matches from search results with a personal reason each. Always call after a search that has relevant results.'),
     'get_product_details': (ProductArgs, 'product', 'Full specifications and images of one product.'),
     'compare_products': (CompareArgs, 'compare', 'Side-by-side specification table plus price range and number of in-person shops for 2-4 products.'),
     'find_stores': (StoresArgs, 'stores', 'In-person shops in Tehran that registered an offer for the product, ranked by price, distance, opening hours and price freshness, with reasons, mall/floor/unit and installment providers.'),
@@ -103,6 +127,29 @@ def execute(name: str, arguments: dict, sid: str) -> tuple[str | None, dict]:
     a, s = _session(sid)
     p = s.get('preferences', {})
 
+    if name == 'explore_needs':
+        r = hybrid.facets(args.query, p.get('budget'), p.get('lat'), p.get('lon'),
+                          p.get('radius') if p.get('lat') is not None else None, bool(p.get('installment')), bool(p.get('open_now')))
+        return ui, r
+
+    if name == 'ask_user':
+        return ui, {'question': args.question, 'options': args.options, 'multi': args.multi}
+
+    if name == 'recommend_products':
+        ids = [x.product_id for x in args.picks]
+        data = hybrid.payloads(ids)
+        with c.connect() as db:
+            evidence = hybrid._evidence(db, ids, p.get('budget'), p.get('lat'), p.get('lon'),
+                                        p.get('radius') if p.get('lat') is not None else None, bool(p.get('installment')), bool(p.get('open_now')))
+        picks = []
+        for x in args.picks:
+            if x.product_id not in data:
+                continue
+            card = hybrid.card(data[x.product_id], x.product_id, evidence.get(x.product_id, {}))
+            picks.append({**card, 'reason': x.reason, 'label': x.label})
+        s['selected_product_id'] = picks[0]['product_id'] if picks else s.get('selected_product_id'); a.save(sid, s)
+        return ui, {'picks': picks}
+
     if name == 'search_products':
         category = None
         if args.category_hint:
@@ -110,8 +157,9 @@ def execute(name: str, arguments: dict, sid: str) -> tuple[str | None, dict]:
             match = next((x for x in a.categories() if x['name'] == hint), None) or \
                 next((x for x in a.categories() if hint in (x['name'] or '')), None)
             category = match['category_id'] if match else None
-        result = hybrid.search(args.query, category, p.get('budget'), 0, 8, p.get('lat'), p.get('lon'),
-                               p.get('radius') if p.get('lat') is not None else None, bool(p.get('installment')), bool(p.get('open_now')))
+        result = hybrid.search(args.query, category, p.get('budget'), 0, 10, p.get('lat'), p.get('lon'),
+                               p.get('radius') if p.get('lat') is not None else None, bool(p.get('installment')), bool(p.get('open_now')),
+                               include_accessories=args.include_accessories)
         s['preferences'] = {**p, 'query': args.query[:300]}
         s['last_results'] = [r['product_id'] for r in result['results']]
         a.save(sid, s)
@@ -182,8 +230,15 @@ def execute(name: str, arguments: dict, sid: str) -> tuple[str | None, dict]:
 
 def compact_for_model(name: str, data: dict) -> dict:
     """Keep the model context small; the UI receives the full records."""
+    if name == 'explore_needs':
+        return {k: data[k] for k in ('products_with_inperson_offers', 'categories', 'price_toman', 'brands', 'spec_facets', 'examples')}
+    if name == 'ask_user':
+        return {'asked': True, 'note': 'Question shown with buttons. Stop now and wait for the user.'}
+    if name == 'recommend_products':
+        return {'shown': [x['product_id'] for x in data['picks']]}
     if name == 'search_products':
-        return {'total': data['total'], 'constraints': data['constraints'], 'results': [
+        return {'total': data['total'], 'constraints': data['constraints'], 'categories': data.get('intent', {}).get('categories'),
+                'hidden_accessories': data.get('intent', {}).get('hidden_accessories'), 'results': [
             {k: r.get(k) for k in ('product_id', 'persian_title', 'brand_name', 'category_name', 'recorded_min_price',
                                    'recorded_max_price', 'shop_count', 'nearest_km', 'installment_shops', 'open_shops')}
             for r in data['results']]}

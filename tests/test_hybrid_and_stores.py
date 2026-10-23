@@ -93,3 +93,40 @@ class HybridApiTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class IntentAndConversationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        c.initialize()
+
+    def test_phone_query_hides_accessories(self):
+        r = search.search('گوشی سامسونگ', limit=12)
+        self.assertEqual(r['intent']['categories'][0]['name'], 'گوشی موبایل')
+        self.assertTrue(all(p['category_name'] == 'گوشی موبایل' for p in r['results']))
+        cases = search.search('قاب گوشی سامسونگ', limit=6)
+        self.assertTrue(all('کاور' in p['category_name'] for p in cases['results']))
+
+    def test_map_listings_require_a_filter(self):
+        with TestClient(app) as client:
+            self.assertEqual(client.get('/api/map/listings').json()['note'], 'FILTER_FIRST')
+            r = client.get('/api/map/listings', params={'q': 'هدفون بی سیم'}).json()
+            self.assertTrue(r['listings'])
+            self.assertEqual(len({x['shop_id'] for x in r['listings']}), len(r['listings']))
+
+    def test_ask_user_ends_the_turn(self):
+        from backend.agent.chat_agent import run_stream
+        with TestClient(app) as client:
+            sid = client.post('/api/sessions', json={}).json()['id']
+        calls = []
+
+        def create(**kw):
+            calls.append(kw)
+            name, args = (('explore_needs', {'query': 'گوشی موبایل'}) if len(calls) == 1 else
+                          ('ask_user', {'question': 'برای چی می‌خوایش؟', 'options': ['عکاسی', 'بازی']}))
+            return N(choices=[N(message=N(content='', tool_calls=[N(id=str(len(calls)), type='function', function=N(name=name, arguments=json.dumps(args)))]))])
+        events = list(run_stream(sid, 'گوشی می‌خوام', client=N(chat=N(completions=N(create=create)))))
+        self.assertEqual(len(calls), 2)
+        self.assertEqual([e['ui'] for e in events if e['type'] == 'component'], ['insight', 'question'])
+        self.assertNotIn('message', [e['type'] for e in events])
+        self.assertEqual(events[-1]['suggestions'], [])

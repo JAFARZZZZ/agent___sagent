@@ -20,7 +20,7 @@ const pinPrice = n => !n ? '؟' : n >= 1e9 ? faDigits((n / 1e9).toFixed(1)) + 'B
 const km = d => d == null ? null : d < 1 ? fa(Math.round(d * 1000)) + ' متر' : fa(+d.toFixed(1)) + ' کیلومتر';
 
 /* ------------------------------------------------------------------ mascot */
-const MASCOT = `<svg viewBox="0 0 120 140" aria-hidden="true"><defs><linearGradient id="rbG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2477C"/><stop offset=".62" stop-color="#E8336B"/><stop offset="1" stop-color="#FFD3E0"/></linearGradient><linearGradient id="lfG" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#1C9A5B"/><stop offset="1" stop-color="#3CCB82"/></linearGradient></defs>
+const MASCOT_SRC = `<svg viewBox="0 0 120 140" aria-hidden="true"><defs><linearGradient id="rbG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F2477C"/><stop offset=".62" stop-color="#E8336B"/><stop offset="1" stop-color="#FFD3E0"/></linearGradient><linearGradient id="lfG" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#1C9A5B"/><stop offset="1" stop-color="#3CCB82"/></linearGradient></defs>
 <g class="m-leaves"><path d="M58 37C44 30 34 16 40 6c10 4 18 16 18 31Z" fill="url(#lfG)"/><path d="M62 37c14-7 26-19 20-29-12 4-20 16-20 29Z" fill="url(#lfG)"/><path d="M60 38c-8-14-6-30 1-36 7 7 8 22-1 36Z" fill="#2BB673"/></g>
 <g stroke="#2A1F2D" stroke-width="3.2" stroke-linecap="round" fill="none"><path d="M50 104q-3 12-5 22"/><path d="M70 104q3 12 5 22"/><path d="M95 80q9 6 12 16"/></g>
 <ellipse cx="42" cy="128" rx="7" ry="3.6" fill="#B81F50"/><ellipse cx="78" cy="128" rx="7" ry="3.6" fill="#B81F50"/>
@@ -31,7 +31,9 @@ const MASCOT = `<svg viewBox="0 0 120 140" aria-hidden="true"><defs><linearGradi
 <g class="m-eyes"><ellipse cx="48" cy="68" rx="4.6" ry="6.2" fill="#2A1F2D"/><ellipse cx="72" cy="68" rx="4.6" ry="6.2" fill="#2A1F2D"/><circle cx="49.6" cy="65.6" r="1.7" fill="#fff"/><circle cx="73.6" cy="65.6" r="1.7" fill="#fff"/></g>
 <ellipse cx="39" cy="79" rx="5.5" ry="3.4" fill="#FF9DBB" opacity=".8"/><ellipse cx="81" cy="79" rx="5.5" ry="3.4" fill="#FF9DBB" opacity=".8"/>
 <path d="M51 79q9 12 18 0-9 4-18 0Z" fill="#2A1F2D"/><path d="M55.5 84.5q4.5 4 9 0-4.5-1.5-9 0Z" fill="#FF7A9C"/></svg>`;
-const mascot = (cls = '') => `<span class="mascot ${cls}">${MASCOT}</span>`;
+let _mid = 0;
+function mascotSvg() {const k = ++_mid; return MASCOT_SRC.replaceAll('rbG', 'rbG' + k).replaceAll('lfG', 'lfG' + k)}
+const mascot = (cls = '') => `<span class="mascot ${cls}">${mascotSvg()}</span>`;
 (() => {const st = document.createElement('style'); st.textContent = `.m-wave{transform-origin:25px 78px;animation:wave 2.4s ease-in-out infinite}.m-leaves{transform-origin:60px 38px;animation:sway 3s ease-in-out infinite}.m-eyes{transform-origin:60px 68px;animation:blink 4s infinite}@keyframes wave{0%,60%,100%{transform:rotate(0)}70%{transform:rotate(-18deg)}80%{transform:rotate(10deg)}90%{transform:rotate(-12deg)}}@keyframes sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}@keyframes blink{0%,46%,50%,100%{transform:scaleY(1)}48%{transform:scaleY(.1)}}`; document.head.append(st)})();
 
 const ICON = {
@@ -77,7 +79,7 @@ function addUser(text) {
 }
 function addBot(text) {
   $('.welcome')?.remove();
-  thread.insertAdjacentHTML('beforeend', `<div class="msg bot"><span class="avatar">${MASCOT}</span><div class="bubble">${richText(text)}</div></div>`);
+  thread.insertAdjacentHTML('beforeend', `<div class="msg bot"><span class="avatar">${mascotSvg()}</span><div class="bubble">${richText(text)}</div></div>`);
   scrollEnd();
 }
 function addBlock(html, id) {
@@ -90,7 +92,7 @@ function addBlock(html, id) {
 function thinking() {
   const el = document.createElement('div');
   el.className = 'thinking';
-  el.innerHTML = `<span class="avatar">${MASCOT}</span><div class="think-card"><ol></ol></div>`;
+  el.innerHTML = `<span class="avatar">${mascotSvg()}</span><div class="think-card"><ol></ol></div>`;
   thread.append(el); scrollEnd();
   return {
     step(text) {$$('li.now', el).forEach(li => li.classList.remove('now')); el.querySelector('ol').insertAdjacentHTML('beforeend', `<li class="now">${esc(text)}</li>`); scrollEnd()},
@@ -128,7 +130,7 @@ function renderPrefs() {
 async function patchPrefs(patch, {rerun = true} = {}) {
   S.prefs = await api(`/api/sessions/${S.sid}/preferences`, {method: 'PATCH', body: patch});
   renderPrefs();
-  if (rerun) rerunLast();
+  if (rerun) {rerunLast(); Map_.refresh()}
 }
 function rerunLast() {
   const last = [...$$('.block[data-kind]')].pop();
@@ -206,7 +208,7 @@ function stopPick() {S.pick = false; $('.map-pane').classList.remove('picking');
 
 /* ------------------------------------------------------------------ renderers */
 function imgTag(url, cls = '') {
-  return url ? `<img class="${cls}" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph',innerHTML:MASCOT}))">` : `<span class="ph">${MASCOT}</span>`;
+  return url ? `<img class="${cls}" src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph',innerHTML:mascotSvg()}))">` : `<span class="ph">${mascotSvg()}</span>`;
 }
 function productCard(p) {
   const sel = S.compare.has(p.product_id);
@@ -322,7 +324,7 @@ function renderInquiry(d) {
 function renderProductSheet(p) {
   const specs = (p.specs || []).map(s => `<tr><td>${esc(s.key)}</td><td>${esc(s.value)}</td></tr>`).join('');
   return `<h2>${esc(p.persian_title)}</h2><div class="pcat">${esc(p.category_name || '')}${p.brand_name ? ' · ' + esc(p.brand_name) : ''}</div>
-    <div class="gallery">${(p.image_urls || []).map(u => `<img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`).join('') || `<span class="ph" style="width:80px">${MASCOT}</span>`}</div>
+    <div class="gallery">${(p.image_urls || []).map(u => `<img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`).join('') || `<span class="ph" style="width:80px">${mascotSvg()}</span>`}</div>
     <div class="row"><button class="btn primary" type="button" data-act="stores" data-pid="${esc(p.product_id)}">${ICON.store} فروشگاه‌های حضوری</button><button class="btn soft" type="button" data-act="cmp-add" data-pid="${esc(p.product_id)}">افزودن به مقایسه</button></div>
     <h3>مشخصات ثبت‌شده</h3>${specs ? `<table class="kv">${specs}</table>` : '<div class="note">مشخصاتی برای این کالا ثبت نشده.</div>'}`;
 }
@@ -337,6 +339,31 @@ function renderShopSheet(s) {
     <h3>ارتباط</h3><div>${s.contacts.map(c => `<span class="mini">${esc(c.channel)} · ${esc(c.number)}</span>`).join(' ') || '<span class="unknown">ثبت نشده</span>'}${s.instagram ? ` <a href="https://instagram.com/${esc(s.instagram)}" target="_blank" rel="noopener">اینستاگرام</a>` : ''}${s.website ? ` <a href="${esc(s.website)}" target="_blank" rel="noopener">وب‌سایت</a>` : ''}</div>
     <div class="note">شماره‌های تماس دیتاست ساختگی است؛ برای استعلام از دکمه «استعلام» در فهرست فروشگاه‌ها استفاده کن (شبیه‌سازی‌شده).</div>`;
 }
+function renderInsight(d) {
+  const pr = d.price_toman, cats = (d.categories || []).map(c => c.name).slice(0, 2).join('، ');
+  const brands = (d.brands || []).slice(0, 5).map(b => b.name).join('، ');
+  return `<div class="insight"><span class="ic">🔎</span><div><b>نگاهی به بازار حضوری «${esc(d.query)}»</b>
+    <div>${fa(d.products_with_inperson_offers)} مدل با فروشنده‌ی حضوری${cats ? ' · دسته: ' + esc(cats) : ''}</div>
+    ${pr ? `<div>قیمت ثبت‌شده از ${money(pr.min)} تا ${money(pr.max)} · بیشتر بین ${money(pr.p25)} و ${money(pr.p75)}</div>` : ''}
+    ${brands ? `<div>برندهای پرتکرار: ${esc(brands)}</div>` : ''}</div></div>`;
+}
+function renderQuestion(d, id) {
+  return `<div class="msg bot"><span class="avatar">${mascotSvg()}</span><div class="qcard" id="${id}"><div class="bubble">${richText(d.question)}</div>
+    <div class="qopts">${d.options.map(o => `<button type="button" data-act="${d.multi ? 'qtoggle' : 'qanswer'}" data-q="${id}" data-text="${esc(o)}">${esc(o)}</button>`).join('')}
+    <button type="button" class="other" data-act="qother">چیز دیگه‌ای…</button></div>
+    ${d.multi ? `<button class="btn primary sm" type="button" data-act="qsend" data-q="${id}">تأیید انتخاب‌ها</button>` : ''}</div></div>`;
+}
+function renderPicks(d) {
+  return `<div class="block-head"><strong>✨ پیشنهادهای تربچه برای تو</strong><span>بر اساس نیازی که گفتی</span></div><div class="picks">${d.picks.map((p, i) => `
+    <article class="pick" data-pid="${esc(p.product_id)}">
+      <div class="pk-img" data-act="detail" data-pid="${esc(p.product_id)}">${imgTag(p.image_url)}${p.label || i === 0 ? `<span class="pk-badge">${esc(p.label || 'پیشنهاد اصلی')}</span>` : ''}</div>
+      <div class="pk-body"><h4>${esc(p.persian_title)}</h4>
+        <p class="why">💡 ${esc(p.reason)}</p>
+        <div class="minis"><span class="mini">${p.recorded_min_price ? 'از ' + money(p.recorded_min_price) : 'قیمت ثبت نشده'}</span>${p.shop_count ? `<span class="mini">${fa(p.shop_count)} فروشگاه حضوری</span>` : ''}${p.nearest_km != null ? `<span class="mini g">${km(p.nearest_km)}</span>` : ''}${p.installment_shops ? '<span class="mini p">قسطی</span>' : ''}${p.open_shops ? `<span class="mini g">${fa(p.open_shops)} باز</span>` : ''}</div>
+        <div class="row"><button class="btn primary sm" type="button" data-act="stores" data-pid="${esc(p.product_id)}" ${p.shop_count ? '' : 'disabled'}>${ICON.store} فروشگاه‌ها</button>
+        <label class="btn ghost sm"><input type="checkbox" data-act="cmp" data-pid="${esc(p.product_id)}" ${S.compare.has(p.product_id) ? 'checked' : ''} style="accent-color:var(--pink)">مقایسه</label></div>
+      </div></article>`).join('')}</div>`;
+}
 function openSheet(html) {$('#sheetBody').innerHTML = html; $('#sheet').hidden = false; $('#sheetBody').parentElement.scrollTop = 0}
 const closeSheet = () => $('#sheet').hidden = true;
 
@@ -346,7 +373,18 @@ function showComponent(c) {
   if (c.ui === 'products') {
     const {id, html} = renderProducts(d, {q: d.query});
     const el = addBlock(html, id); el.dataset.kind = 'products'; el.dataset.q = d.query || '';
-    setStep(1);
+    S.turn?.push(el); setStep(1); Map_.setExplore({q: d.query});
+  } else if (c.ui === 'picks') {
+    S.blocks['picks' + (++blockSeq)] = {kind: 'products', data: {results: d.picks}};
+    for (const el of (S.turn || [])) if (el.dataset.kind === 'products' && !el.classList.contains('collapsed')) {
+      el.classList.add('collapsed');
+      el.insertAdjacentHTML('afterbegin', `<button class="expand" type="button" data-act="expand">همه‌ی نتایج جستجو (${esc(el.querySelector('.block-head strong')?.textContent || '')}) ▾</button>`);
+    }
+    addBlock(renderPicks(d)); setStep(1);
+  } else if (c.ui === 'insight') {
+    addBlock(renderInsight(d));
+  } else if (c.ui === 'question') {
+    const id = 'q' + (++blockSeq); addBlock(renderQuestion(d, id));
   } else if (c.ui === 'stores') {
     const {id, html, rows} = renderStores(d);
     const el = addBlock(html, id); el.dataset.kind = 'stores'; el.dataset.pid = d.product_id;
@@ -393,7 +431,7 @@ async function runSearch(q, {silent = false, replace = null, note = ''} = {}) {
   const {id, html} = renderProducts(data, {q});
   if (replace) {replace.innerHTML = html; replace.id = id}
   else {const el = addBlock((note ? `<div class="note warn">${esc(note)}</div>` : '') + html, id); el.dataset.kind = 'products'; el.dataset.q = q}
-  setStep(1); setSuggestions(['دوتای اول رو مقایسه کن', 'فقط فروشگاه‌های قسطی', 'من نزدیک میدان فردوسی هستم']);
+  setStep(1); Map_.setExplore({q}); setSuggestions(['دوتای اول رو مقایسه کن', 'فقط فروشگاه‌های قسطی', 'من نزدیک میدان فردوسی هستم']);
 }
 async function showStores(pid, {silent = false, replace = null} = {}) {
   const title = $(`.pcard[data-pid="${CSS.escape(pid)}"] .ptitle`)?.textContent || 'این کالا';
@@ -428,6 +466,8 @@ async function ask(text) {
   if (S.busy || !text.trim()) return;
   S.busy = true; $('#send').disabled = true; setSuggestions([]);
   addUser(text);
+  $$('.qcard .qopts button:not(.picked)').forEach(b => b.disabled = true);
+  S.turn = [];
   const th = thinking();
   let gotComponent = false, failed = false;
   try {
@@ -477,69 +517,150 @@ function findProduct(pid) {
   return {product_id: pid};
 }
 
-/* ------------------------------------------------------------------ map */
+/* ------------------------------------------------------------------ map: filter first, then explore listings */
 const Map_ = (() => {
-  let map, userLayer, storeLayer, densityLayer, markers = new Map();
+  let map, userLayer, cluster, markers = new Map(), items = [], mode = 'idle', explore = null, product = null, timer = null, reqId = 0, openShop = null;
+  const QUICK = ['گوشی موبایل', 'هدفون بی سیم', 'ساعت هوشمند', 'کفش اسپرت', 'لپ تاپ', 'دوربین مداربسته', 'تلویزیون', 'جاروبرقی'];
   function init(cfg) {
     map = L.map('map', {zoomControl: false, attributionControl: true}).setView([35.700, 51.405], 12);
     L.control.zoom({position: 'topright'}).addTo(map);
     L.tileLayer(cfg.tile_url, {maxZoom: 19, attribution: cfg.attribution}).addTo(map);
-    userLayer = L.layerGroup().addTo(map); storeLayer = L.layerGroup().addTo(map); densityLayer = L.layerGroup().addTo(map);
+    userLayer = L.layerGroup().addTo(map);
+    cluster = L.markerClusterGroup({showCoverageOnHover: false, spiderfyOnMaxZoom: true, maxClusterRadius: 50, spiderfyDistanceMultiplier: 2.2,
+      iconCreateFunction: cl => {
+        const ms = cl.getAllChildMarkers(), prices = ms.map(m => m.options.price).filter(Boolean);
+        const imgs = ms.slice(0, 3).map(m => m.options.image).filter(Boolean);
+        return L.divIcon({className: '', iconSize: [0, 0], html: `<div class="cpin"><div class="thumbs">${imgs.map(u => `<img src="${esc(u)}" referrerpolicy="no-referrer" onerror="this.remove()">`).join('')}</div><b>${fa(ms.length)} فروشگاه</b>${prices.length ? `<small>از ${pinPrice(Math.min(...prices))}</small>` : ''}</div>`});
+      }});
+    map.addLayer(cluster);
     map.on('click', e => {if (S.pick) {stopPick(); patchPrefs({lat: e.latlng.lat, lon: e.latlng.lng, area: null, radius: S.prefs.lat == null ? 3 : S.prefs.radius}); toast('موقعیتت روی نقشه ثبت شد')}});
-    loadDensity(); head();
+    map.on('moveend', () => {if (mode === 'explore') {clearTimeout(timer); timer = setTimeout(load, 350)}});
+    map.on('zoomend', () => $('#map').classList.toggle('zoom-hi', map.getZoom() >= 17));
+    idle();
+    const pane = $('.map-pane');
+    new ResizeObserver(() => pane.style.setProperty('--strip-h', $('#strip').offsetHeight + 'px')).observe($('#strip'));
   }
-  async function loadDensity() {
-    try {
-      const d = await api('/api/map/clusters?' + qs({west: 51.1, east: 51.7, south: 35.55, north: 35.85, zoom: 12}));
-      for (const c of d.cells) {
-        if (c.shops < 2) continue;
-        const size = Math.min(64, 18 + Math.sqrt(c.shops) * 4);
-        L.marker([c.lat, c.lon], {interactive: false, icon: L.divIcon({className: '', html: `<div class="density" style="width:${size}px;height:${size}px;margin:-${size / 2}px 0 0 -${size / 2}px">${fa(c.shops)}</div>`})}).addTo(densityLayer);
-      }
-    } catch {}
+  function idle() {
+    mode = 'idle'; explore = null; product = null; map.closePopup(); cluster.clearLayers(); markers.clear(); items = [];
+    $('#mapHead').innerHTML = `<form class="msearch" id="mapSearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="q" placeholder="روی نقشه دنبال چی بگردم؟" autocomplete="off"></form>`;
+    $('#strip').innerHTML = `<div class="empty-map">${mascot()}<div><b>اول بگو چی می‌خوای، بعد نشونت می‌دم کجاست 🗺️</b><p>فقط فروشگاه‌هایی که همون کالا رو دارن روی نقشه میان.</p><div class="qchips">${QUICK.map(q => `<button type="button" data-act="explore" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div></div></div>`;
+    bindSearch(); badge(0);
   }
-  function head(product, count) {
-    $('#mapHead').innerHTML = product ? `<div class="card">${imgTag(product.image_url)}<div><b style="display:block;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(product.persian_title)}</b><span style="color:var(--ink-3)">${fa(count)} فروشگاه روی نقشه</span></div><button class="icon-btn" type="button" data-act="clear-map" aria-label="پاک کردن نقشه">${ICON.x}</button></div>`
-      : `<div class="card">${mascot()}<div><b>۶٬۴۷۶ فروشگاه حضوری تهران</b><br><span style="color:var(--ink-3)">کالا که انتخاب کنی، فروشگاه‌هاش اینجا میان</span></div></div>`;
-    const b = $('#mapBadge'); b.hidden = !count; b.textContent = count ? fa(count) : '';
+  function bindSearch() {
+    const f = $('#mapSearch'); if (!f) return;
+    f.onsubmit = e => {e.preventDefault(); const q = f.q.value.trim(); if (q) setExplore({q})};
+  }
+  function headExplore(r) {
+    const cats = (r?.intent || []).map(c => c.name).slice(0, 2).join('، ');
+    $('#mapHead').innerHTML = `<form class="msearch on" id="mapSearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="q" value="${esc(explore.q)}" autocomplete="off"><button type="button" class="icon-btn" data-act="clear-map" aria-label="پاک کردن">${ICON.x}</button></form>
+      <div class="mstat">${r ? `${fa(r.total_shops)} فروشگاه در این محدوده${cats ? ' · ' + esc(cats) : ''}${r.hidden_accessories ? ' · لوازم جانبی پنهان' : ''}` : 'در حال جستجو…'}</div>`;
+    bindSearch();
+  }
+  async function setExplore(e) {
+    explore = {q: e.q, category: e.category || null}; mode = 'explore'; product = null; map.closePopup();
+    headExplore(null); await load(true);
+  }
+  async function load(fit = false) {
+    if (mode !== 'explore' || !explore) return;
+    const id = ++reqId, b = map.getBounds();
+    const area = fit ? {west: 51.1, east: 51.75, south: 35.55, north: 35.85} : {west: b.getWest(), east: b.getEast(), south: b.getSouth(), north: b.getNorth()};
+    const r = await api('/api/map/listings?' + qs({q: explore.q, category: explore.category, ...area, budget: S.prefs.budget, installment: S.prefs.installment || null, open_now: S.prefs.open_now || null, lat: S.prefs.lat, lon: S.prefs.lon})).catch(() => null);
+    if (id !== reqId || !r) return;
+    items = r.listings.map((x, i) => ({...x, rank: i}));
+    draw(items); headExplore(r); strip(items, r);
+    if (fit && items.length) {
+      const pts = items.slice(0, 60).map(x => [x.lat, x.lon]); if (S.prefs.lat != null) pts.push([S.prefs.lat, S.prefs.lon]);
+      map.fitBounds(pts, {padding: [90, 60], maxZoom: 15});
+    }
+  }
+  function pinHtml(x, top) {
+    const st = x.open?.status || 'unknown';
+    return `<div class="lpin ${st} ${top ? 'top' : ''}" data-shop="${esc(x.shop_id)}"><span class="ph-img">${x.product?.image_url ? `<img src="${esc(x.product.image_url)}" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('i'),{textContent:'🛍️'}))">` : '<i>🛍️</i>'}</span><span class="pp"><b>${pinPrice(x.price_toman)}</b><em>${esc((x.product?.title || '').slice(0, 26))}</em></span></div>`;
+  }
+  function popupHtml(x) {
+    return `<div class="mpop">${x.product?.image_url ? `<img src="${esc(x.product.image_url)}" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+      <b class="t">${esc(x.product?.title || '')}</b>
+      <div class="pr">${x.price_toman ? money(x.price_toman) + ' تومان' : 'قیمت ثبت نشده'} <small>${esc(x.freshness?.label || '')}</small></div>
+      <div>🏪 ${esc(x.shop_name || '')} · <span class="${x.open?.status}">${esc(x.open?.label || '')}</span></div>
+      ${x.mall ? `<div>🏬 ${esc(x.mall)}</div>` : ''}${x.distance_km != null ? `<div>📍 ${km(x.distance_km)} از شما</div>` : ''}
+      ${x.installment?.length ? `<div>💳 ${x.installment.map(esc).join('، ')}</div>` : ''}
+      ${x.more_matches ? `<div class="more-m">+${fa(x.more_matches)} کالای مرتبط دیگه در همین مغازه</div>` : ''}
+      <div class="pa"><button class="btn primary sm" data-act="stores" data-pid="${esc(x.product?.product_id)}">مقایسه فروشنده‌ها</button><button class="btn soft sm" data-act="inquire" data-offer="${esc(x.offer_id)}">استعلام</button><button class="btn ghost sm" data-act="shop" data-shop="${esc(x.shop_id)}">مغازه</button></div></div>`;
+  }
+  function openPopup(x) {
+    openShop = x.shop_id;
+    L.popup({maxWidth: 280, minWidth: 240, offset: [0, -40], autoPanPaddingTopLeft: [20, 130], autoPanPaddingBottomRight: [20, 170]})
+      .setLatLng([x.lat, x.lon]).setContent(popupHtml(x)).openOn(map)
+      .on('remove', () => {if (openShop === x.shop_id) openShop = null});
+  }
+  function draw(list, {reset = false} = {}) {
+    if (reset) {map.closePopup(); openShop = null}
+    cluster.clearLayers(); markers.clear();
+    const ms = list.filter(x => x.lat != null).map((x, i) => {
+      const m = L.marker([x.lat, x.lon], {icon: L.divIcon({className: '', iconSize: [0, 0], html: pinHtml(x, i === 0 && mode === 'stores')}), price: x.price_toman, image: x.product?.image_url, zIndexOffset: 400 - i});
+      m.on('click', () => {openPopup(x); cardFocus(x.shop_id)});
+      markers.set(x.shop_id, m); return m;
+    });
+    cluster.addLayers(ms);
+    badge(list.length);
+  }
+  function strip(list, r) {
+    if (!list.length) {
+      $('#strip').innerHTML = `<div class="empty-map">${mascot()}<div><b>تو این محدوده چیزی پیدا نشد</b><p>نقشه رو جابه‌جا کن، کوچیک‌تر کن یا فیلترها (بودجه، قسطی، الان باز) رو تغییر بده.</p></div></div>`;
+      return;
+    }
+    $('#strip').innerHTML = `<div class="lcards">${list.slice(0, 40).map(x => `<article class="lcard" data-shop="${esc(x.shop_id)}" data-act="card-focus">
+      <span class="li">${x.product?.image_url ? `<img src="${esc(x.product.image_url)}" referrerpolicy="no-referrer" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{textContent:'🛍️'}))">` : '<i>🛍️</i>'}</span>
+      <div class="lb"><b class="lt">${esc(x.product?.title || '')}</b><span class="lpz">${x.price_toman ? money(x.price_toman) : 'بدون قیمت'}</span>
+      <span class="ls">${esc(x.shop_name || '')} · <span class="${x.open?.status}">${x.open?.status === 'open' ? 'باز' : x.open?.status === 'closed' ? 'بسته' : 'ساعت نامشخص'}</span>${x.distance_km != null ? ' · ' + km(x.distance_km) : ''}</span>
+      ${x.mall ? `<span class="lm">🏬 ${esc(x.mall)}</span>` : ''}</div></article>`).join('')}</div>`;
+  }
+  function cardFocus(shopId) {
+    $$('.lcard.on').forEach(x => x.classList.remove('on'));
+    const card = $(`.lcard[data-shop="${CSS.escape(shopId)}"]`);
+    if (card) {card.classList.add('on'); card.scrollIntoView({inline: 'center', block: 'nearest', behavior: 'smooth'})}
+    highlight(shopId);
+  }
+  function focus(shopId) {
+    const m = markers.get(shopId), x = items.find(i => i.shop_id === shopId); if (!m || !x) return;
+    setView('map');
+    const ll = m.getLatLng();
+    map.flyTo(ll, Math.max(map.getZoom(), 15), {duration: .5});
+    map.once('moveend', () => openPopup(x));
+    cardFocus(shopId);
+  }
+  function showStores(prod, rows, {keep = false} = {}) {
+    if (!map) return;
+    mode = 'stores'; product = prod;
+    const list = rows.map((r, i) => ({shop_id: r.shop.shop_id, shop_name: r.shop.name, lat: r.shop.lat, lon: r.shop.lon, open: r.shop.open, installment: (r.shop.installment || []).map(x => x.provider),
+      mall: r.shop.mall?.summary, distance_km: r.shop.distance_km, offer_id: r.offer_id, price_toman: r.price_toman, freshness: r.freshness,
+      product: {product_id: prod?.product_id || r.product_id, title: prod?.persian_title, image_url: prod?.image_url}, more_matches: 0, rank: i}));
+    items = keep ? [...items.filter(x => !list.find(y => y.shop_id === x.shop_id)), ...list] : list;
+    draw(items, {reset: !keep}); strip(items);
+    $('#mapHead').innerHTML = `<div class="msearch on prod">${prod?.image_url ? `<img src="${esc(prod.image_url)}" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}<span class="pt">${esc(prod?.persian_title || '')}</span><button type="button" class="icon-btn" data-act="back-explore" aria-label="بازگشت">${ICON.x}</button></div><div class="mstat">${fa(items.length)} فروشگاه این کالا رو دارن</div>`;
+    const pts = items.filter(x => x.lat != null).map(x => [x.lat, x.lon]); if (S.prefs.lat != null) pts.push([S.prefs.lat, S.prefs.lon]);
+    if (pts.length) map.fitBounds(pts, {padding: [90, 60], maxZoom: 15});
+  }
+  function backToExplore() {if (explore) {mode = 'explore'; headExplore(null); load(true)} else idle()}
+  function highlight(shopId) {
+    $$('.lpin.hl').forEach(x => x.classList.remove('hl'));
+    $$(`.lpin[data-shop="${CSS.escape(shopId)}"]`).forEach(x => x.classList.add('hl'));
+    $$('.srow.hl').forEach(x => x.classList.remove('hl'));
+    const row = [...$$(`.srow[data-shop="${CSS.escape(shopId)}"]`)].pop();
+    if (row) {row.classList.add('hl'); if (innerWidth > 860) row.scrollIntoView({block: 'center', behavior: 'smooth'})}
   }
   function setUser(p) {
     if (!map) return;
     userLayer.clearLayers();
     if (p.lat == null) return;
     L.marker([p.lat, p.lon], {icon: L.divIcon({className: '', html: '<div class="me" style="margin:-9px 0 0 -9px"></div>'}), zIndexOffset: 1000}).addTo(userLayer).bindTooltip(p.area || 'موقعیت شما', {direction: 'top'});
-    L.circle([p.lat, p.lon], {radius: (p.radius || 3) * 1000, color: '#2F7BF6', weight: 1.5, fillOpacity: .05, dashArray: '6 6'}).addTo(userLayer);
+    L.circle([p.lat, p.lon], {radius: (p.radius || 3) * 1000, color: '#2F7BF6', weight: 1.5, fillOpacity: .04, dashArray: '6 6', interactive: false}).addTo(userLayer);
   }
-  function showStores(product, rows, {keep = false} = {}) {
-    if (!map) return;
-    if (!keep) {storeLayer.clearLayers(); markers.clear()}
-    map.removeLayer(densityLayer);
-    const pts = [];
-    rows.forEach((r, i) => {
-      const s = r.shop; if (s.lat == null || markers.has(s.shop_id)) return;
-      const cls = `pin ${s.open.status} ${i === 0 && !keep ? 'top' : ''}`;
-      const m = L.marker([s.lat, s.lon], {icon: L.divIcon({className: '', html: `<div class="${cls}"><div class="tag"><b>${keep ? '↻' : fa(i + 1)}</b>${pinPrice(r.price_toman)}</div><div class="stem"></div></div>`, iconSize: [0, 0]}), zIndexOffset: 500 - i}).addTo(storeLayer);
-      m.bindPopup(`<b style="font-size:14px">${esc(s.name)}</b><div>${money(r.price_toman)} تومان · <span class="${s.open.status}">${esc(s.open.label)}</span></div>${s.mall?.summary ? `<div>🏬 ${esc(s.mall.summary)}</div>` : ''}${s.distance_km != null ? `<div>📍 ${km(s.distance_km)}</div>` : ''}<div style="display:flex;gap:6px;margin-top:8px"><button class="btn soft sm" data-act="inquire" data-offer="${esc(r.offer_id)}">استعلام</button><button class="btn ghost sm" data-act="shop" data-shop="${esc(s.shop_id)}">جزئیات</button></div>`);
-      m.on('click', () => highlight(s.shop_id));
-      markers.set(s.shop_id, m); pts.push([s.lat, s.lon]);
-    });
-    if (S.prefs.lat != null && !keep) pts.push([S.prefs.lat, S.prefs.lon]);
-    if (pts.length) map.fitBounds(pts, {padding: [70, 70], maxZoom: 15});
-    head(product, markers.size);
-  }
-  function highlight(shopId) {
-    $$('.srow.hl').forEach(x => x.classList.remove('hl'));
-    const row = [...$$(`.srow[data-shop="${CSS.escape(shopId)}"]`)].pop();
-    if (row) {row.classList.add('hl'); if (innerWidth > 860) row.scrollIntoView({block: 'center', behavior: 'smooth'})}
-  }
-  function focus(shopId) {
-    const m = markers.get(shopId); if (!m) return;
-    setView('map'); map.flyTo(m.getLatLng(), 16, {duration: .6}); setTimeout(() => m.openPopup(), 650);
-  }
-  function clear() {storeLayer.clearLayers(); markers.clear(); densityLayer.addTo(map); head()}
+  function badge(n) {const b = $('#mapBadge'); b.hidden = !n; b.textContent = n ? fa(n) : ''; const c = $('#chatFabCount'); if (c) c.hidden = true}
+  function refresh() {if (mode === 'explore') load()}
   const fly = (lat, lon, z = 14) => map?.flyTo([lat, lon], z, {duration: .7});
   const invalidate = () => map && setTimeout(() => map.invalidateSize(), 60);
-  return {init, setUser, showStores, focus, fly, clear, invalidate, highlight};
+  return {init, setUser, showStores, focus, fly, clear: idle, invalidate, highlight, setExplore, backToExplore, refresh, cardFocus, get explore() {return explore}};
 })();
 
 function setView(v) {$('#app').dataset.view = v; if (v === 'map') Map_.invalidate()}
@@ -557,6 +678,14 @@ document.addEventListener('click', async e => {
     else if (a === 'shop') openSheet(renderShopSheet(await api(`/api/shops/${encodeURIComponent(t.dataset.shop)}/card?` + qs({lat: S.prefs.lat, lon: S.prefs.lon}))));
     else if (a === 'inquire') {closeSheet(); if (innerWidth <= 860) setView('chat'); await inquire(t.dataset.offer)}
     else if (a === 'focus') Map_.focus(t.dataset.shop);
+    else if (a === 'card-focus') Map_.focus(t.dataset.shop);
+    else if (a === 'explore') {Map_.setExplore({q: t.dataset.q})}
+    else if (a === 'back-explore') Map_.backToExplore();
+    else if (a === 'expand') {t.parentElement.classList.remove('collapsed'); t.remove()}
+    else if (a === 'qanswer') {t.classList.add('picked'); setView('chat'); ask(t.dataset.text)}
+    else if (a === 'qtoggle') t.classList.toggle('picked')
+    else if (a === 'qsend') {const picked = $$(`#${t.dataset.q} .picked`).map(b => b.dataset.text); if (picked.length) ask(picked.join('، '))}
+    else if (a === 'qother') {$('#input').focus(); $('#input').placeholder = 'جوابت رو بنویس…'}
     else if (a === 'close-sheet') closeSheet();
     else if (a === 'sort' || a === 'all-stores') {
       const blk = S.blocks[t.dataset.block]; if (a === 'sort') blk.sort = t.dataset.sort; else blk.all = true;
@@ -621,7 +750,7 @@ async function newSession() {
 }
 (async function boot() {
   const theme = store.get('torob.theme'); if (theme) document.documentElement.dataset.theme = theme;
-  $('#logo').innerHTML = MASCOT;
+  $('#logo').innerHTML = mascotSvg(); $('#chatFabAv').innerHTML = mascotSvg();
   const cfg = await api('/api/map-config').catch(() => ({tile_url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attribution: '© OpenStreetMap'}));
   Map_.init(cfg);
   api('/api/health').then(h => {S.health = h; const st = $('.welcome .stats'); if (st) st.outerHTML = statsHtml(h)}).catch(() => {});
